@@ -1,0 +1,5 @@
+{
+  "name": "CharView AI",
+  "description": "专业的游戏角色AI三视图生成工具。上传角色立绘，即刻生成A-pose、T-pose或原姿势的正侧背三视图。",
+  "requestFramePermissions": []
+}
