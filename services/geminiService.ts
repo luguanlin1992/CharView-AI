@@ -1,8 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
+
+// Lazy initialization to prevent app crash if API key is missing at startup
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("Gemini API Key is missing. Please check your environment variables.");
+    throw new Error("API Key 未配置，无法调用 AI 服务。");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 /**
  * Generates a 3-view character sheet from an uploaded image.
@@ -15,6 +23,8 @@ export const generateCharacterSheet = async (
   backgroundColor: string = '#F0F0F0'
 ): Promise<string> => {
   try {
+    const ai = getAiClient();
+    
     let poseInstruction = '';
     switch (poseType) {
       case 'T-POSE':
@@ -80,7 +90,7 @@ export const generateCharacterSheet = async (
       }
     }
 
-    throw new Error("No image generated. The model might have refused the request or returned only text.");
+    throw new Error("生成失败：模型未返回图像，请重试。");
   } catch (error) {
     console.error("Gemini Generation Error:", error);
     throw error;
