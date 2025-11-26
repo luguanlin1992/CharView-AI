@@ -4,16 +4,18 @@ export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
 // Lazy initialization to prevent app crash if API key is missing at startup
 const getAiClient = () => {
+  // 1. Get key from process.env.API_KEY (populated via vite.config.ts define or environment)
+  // Per guidelines: API key must be obtained exclusively from process.env.API_KEY
   const apiKey = process.env.API_KEY;
   
-  // Debug log (safe)
-  if (process.env.NODE_ENV !== 'production' || !apiKey) {
-    console.log(`[CharView AI] Initializing AI Service. Key configured: ${!!apiKey}, Length: ${apiKey?.length || 0}`);
+  // Debug log
+  if (!apiKey) {
+    console.log(`[CharView AI] Initializing AI Service. Key configured: ${!!apiKey}`);
   }
 
   if (!apiKey) {
-    console.error("Gemini API Key is missing. Please check your environment variables.");
-    throw new Error("API Key 未配置 (Is Empty)。请在 Vercel 环境变量中添加 API_KEY。");
+    console.error("Gemini API Key is missing.");
+    throw new Error("API Key 未配置。请在 Vercel 环境变量中添加 VITE_API_KEY。");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -64,14 +66,19 @@ export const generateCharacterSheet = async (
       ? `${basePrompt}\nAdditional Instruction: ${customInstruction}`
       : basePrompt;
 
+    // Parse mimeType and data from base64 string to be robust
+    const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
+    const mimeType = matches ? matches[1] : 'image/jpeg';
+    const data = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
             inlineData: {
-              mimeType: 'image/jpeg', // Assuming jpeg/png, standardizing on what we send or generic
-              data: base64Image.split(',')[1] // Strip header if present
+              mimeType: mimeType,
+              data: data
             }
           },
           {

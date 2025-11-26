@@ -267,7 +267,7 @@ const App: React.FC = () => {
                             <ol className="list-decimal list-inside space-y-1">
                               <li>前往 Vercel 项目控制台</li>
                               <li>进入 <strong>Settings</strong> {'>'} <strong>Environment Variables</strong></li>
-                              <li>添加 Key: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-900 font-mono">API_KEY</code></li>
+                              <li>确认 Key 为: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-900 font-mono">VITE_API_KEY</code></li>
                               <li>Value: 填入您的 Google Gemini API Key</li>
                               <li>重新部署项目 (Redeploy)</li>
                             </ol>
