@@ -4,7 +4,7 @@ import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
 import { generateCharacterSheet, fileToBase64, PoseType } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -52,9 +52,11 @@ const App: React.FC = () => {
       );
       setGeneratedImage(resultImage);
       setAppState(AppState.SUCCESS);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("生成三视图失败，请重试。");
+      // Capture the specific error message thrown by the service
+      const errorMessage = err.message || "生成三视图失败，请重试。";
+      setError(errorMessage);
       setAppState(AppState.ERROR);
     }
   };
@@ -76,6 +78,8 @@ const App: React.FC = () => {
     { name: '深灰', value: '#333333' },
     { name: '绿幕', value: '#00FF00' },
   ];
+
+  const isApiKeyError = error?.includes("API Key");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
@@ -211,12 +215,6 @@ const App: React.FC = () => {
                   {appState === AppState.GENERATING ? '正在生成三视图...' : '生成三视图'}
                   {!appState.startsWith('GEN') && <Wand2 className="w-4 h-4 ml-2" />}
                 </Button>
-
-                {error && (
-                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">
-                    {error}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -248,12 +246,33 @@ const App: React.FC = () => {
                     className="w-full h-auto max-h-full object-contain"
                   />
                 ) : (
-                  <div className="text-center text-slate-400 p-8">
+                  <div className="text-center text-slate-400 p-8 w-full">
                     {appState === AppState.GENERATING ? (
                       <div className="flex flex-col items-center animate-pulse">
                         <Sparkles className="w-12 h-12 text-indigo-400 mb-4" />
                         <p className="text-lg font-medium text-slate-600">AI 正在绘制三视图...</p>
                         <p className="text-sm">这可能需要几秒钟</p>
+                      </div>
+                    ) : appState === AppState.ERROR ? (
+                      <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in duration-300">
+                        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                          <AlertTriangle className="w-7 h-7 text-red-600" />
+                        </div>
+                        <h3 className="text-lg font-bold text-red-900 mb-2">生成失败</h3>
+                        <p className="text-sm text-red-700 mb-4">{error}</p>
+                        
+                        {isApiKeyError && (
+                          <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
+                            <strong className="text-red-800 block mb-2">配置指南：</strong>
+                            <ol className="list-decimal list-inside space-y-1">
+                              <li>前往 Vercel 项目控制台</li>
+                              <li>进入 <strong>Settings</strong> {'>'} <strong>Environment Variables</strong></li>
+                              <li>添加 Key: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-900 font-mono">API_KEY</code></li>
+                              <li>Value: 填入您的 Google Gemini API Key</li>
+                              <li>重新部署项目 (Redeploy)</li>
+                            </ol>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex flex-col items-center">
