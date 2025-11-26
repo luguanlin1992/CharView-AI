@@ -5,9 +5,15 @@ export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 // Lazy initialization to prevent app crash if API key is missing at startup
 const getAiClient = () => {
   const apiKey = process.env.API_KEY;
+  
+  // Debug log (safe)
+  if (process.env.NODE_ENV !== 'production' || !apiKey) {
+    console.log(`[CharView AI] Initializing AI Service. Key configured: ${!!apiKey}, Length: ${apiKey?.length || 0}`);
+  }
+
   if (!apiKey) {
     console.error("Gemini API Key is missing. Please check your environment variables.");
-    throw new Error("API Key 未配置，无法调用 AI 服务。");
+    throw new Error("API Key 未配置 (Is Empty)。请在 Vercel 环境变量中添加 API_KEY。");
   }
   return new GoogleGenAI({ apiKey });
 };
