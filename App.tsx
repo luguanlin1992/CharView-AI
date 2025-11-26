@@ -4,7 +4,7 @@ import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
 import { generateCharacterSheet, fileToBase64, PoseType } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -79,7 +79,8 @@ const App: React.FC = () => {
     { name: '绿幕', value: '#00FF00' },
   ];
 
-  const isApiKeyError = error?.includes("API Key");
+  const isApiKeyError = error?.includes("API Key") || error?.includes("API_KEY");
+  const isQuotaError = error?.includes("429") || error?.includes("quota") || error?.includes("RESOURCE_EXHAUSTED") || error?.includes("exceeded");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
@@ -259,7 +260,9 @@ const App: React.FC = () => {
                           <AlertTriangle className="w-7 h-7 text-red-600" />
                         </div>
                         <h3 className="text-lg font-bold text-red-900 mb-2">生成失败</h3>
-                        <p className="text-sm text-red-700 mb-4">{error}</p>
+                        <div className="max-h-32 overflow-y-auto w-full mb-4 text-center">
+                          <p className="text-sm text-red-700 break-words">{error}</p>
+                        </div>
                         
                         {isApiKeyError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
@@ -271,6 +274,21 @@ const App: React.FC = () => {
                               <li>Value: 填入您的 Google Gemini API Key</li>
                               <li>重新部署项目 (Redeploy)</li>
                             </ol>
+                          </div>
+                        )}
+
+                        {isQuotaError && (
+                          <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-amber-200 text-left shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Clock className="w-4 h-4 text-amber-600" />
+                                <strong className="text-amber-800">配额不足 (Quota Exceeded)</strong>
+                            </div>
+                            <p className="mb-2 text-slate-600">您使用的 API Key 已达到免费额度限制或请求过于频繁。</p>
+                            <ul className="list-disc list-inside space-y-1 text-slate-500">
+                              <li>请等待几分钟后再重试</li>
+                              <li>如果您使用的是免费版 Key，每分钟/每天有调用次数限制</li>
+                              <li><a href="https://ai.google.dev/pricing" target="_blank" rel="noreferrer" className="underline text-indigo-600 hover:text-indigo-800">查看 API 限额说明</a></li>
+                            </ul>
                           </div>
                         )}
                       </div>
