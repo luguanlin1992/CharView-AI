@@ -4,18 +4,19 @@ export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
 // Lazy initialization to prevent app crash if API key is missing at startup
 const getAiClient = () => {
-  // 1. Get key from process.env.API_KEY (populated via vite.config.ts define or environment)
-  // Per guidelines: API key must be obtained exclusively from process.env.API_KEY
+  // Use process.env.API_KEY exclusively as per guidelines.
+  // The vite.config.ts handles the fallback logic and injection.
   const apiKey = process.env.API_KEY;
   
   // Debug log
   if (!apiKey) {
-    console.log(`[CharView AI] Initializing AI Service. Key configured: ${!!apiKey}`);
+    console.warn("[CharView AI] API Key missing in process.env.API_KEY");
+  } else {
+    console.log(`[CharView AI] Service initialized.`);
   }
 
   if (!apiKey) {
-    console.error("Gemini API Key is missing.");
-    throw new Error("API Key 未配置。请在 Vercel 环境变量中添加 VITE_API_KEY。");
+    throw new Error("API Key 未配置。请在 Vercel 环境变量中确保已添加 VITE_API_KEY，并重新部署(Redeploy)。");
   }
   return new GoogleGenAI({ apiKey });
 };
