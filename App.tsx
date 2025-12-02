@@ -4,7 +4,7 @@ import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
 import { generateCharacterSheet, fileToBase64, PoseType } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -55,7 +55,13 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       // Capture the specific error message thrown by the service
-      const errorMessage = err.message || "生成三视图失败，请重试。";
+      // Ensure we capture JSON error messages if they come in that format
+      let errorMessage = err.message || "生成三视图失败，请重试。";
+      if (typeof err === 'object' && err.toString().includes('[object Object]')) {
+         try {
+            errorMessage = JSON.stringify(err);
+         } catch(e) {}
+      }
       setError(errorMessage);
       setAppState(AppState.ERROR);
     }
@@ -79,8 +85,9 @@ const App: React.FC = () => {
     { name: '绿幕', value: '#00FF00' },
   ];
 
-  const isApiKeyError = error?.includes("API Key") || error?.includes("API_KEY");
-  const isQuotaError = error?.includes("429") || error?.includes("quota") || error?.includes("RESOURCE_EXHAUSTED") || error?.includes("exceeded");
+  // Robust error detection using regex
+  const isApiKeyError = /api[ _]key|vite_api_key/i.test(error || '');
+  const isQuotaError = /429|quota|resource_exhausted|exceeded|limit/i.test(error || '');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
@@ -183,13 +190,16 @@ const App: React.FC = () => {
                         aria-label={`Select ${color.name}`}
                       />
                     ))}
-                    <div className="relative">
+                    <div className="relative group">
                        <input 
                         type="color" 
                         value={backgroundColor}
                         onChange={(e) => setBackgroundColor(e.target.value)}
                         className="w-10 h-10 p-0.5 rounded-full border-2 border-slate-200 overflow-hidden cursor-pointer"
                        />
+                       <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/75 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                         自定义
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -255,41 +265,79 @@ const App: React.FC = () => {
                         <p className="text-sm">这可能需要几秒钟</p>
                       </div>
                     ) : appState === AppState.ERROR ? (
-                      <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in duration-300">
-                        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                          <AlertTriangle className="w-7 h-7 text-red-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-red-900 mb-2">生成失败</h3>
-                        <div className="max-h-32 overflow-y-auto w-full mb-4 text-center">
-                          <p className="text-sm text-red-700 break-words">{error}</p>
+                      <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in zoom-in-95 duration-300">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${isQuotaError ? 'bg-amber-100' : 'bg-red-100'}`}>
+                          {isQuotaError ? (
+                            <Clock className="w-7 h-7 text-amber-600" />
+                          ) : (
+                            <AlertTriangle className="w-7 h-7 text-red-600" />
+                          )}
                         </div>
                         
+                        <h3 className={`text-lg font-bold mb-2 ${isQuotaError ? 'text-amber-900' : 'text-red-900'}`}>
+                          {isQuotaError ? 'API 配额不足 (429)' : '生成失败'}
+                        </h3>
+                        
+                        <div className="max-h-32 overflow-y-auto w-full mb-4 text-center">
+                          <p className={`text-sm break-words ${isQuotaError ? 'text-amber-800' : 'text-red-700'}`}>
+                             {/* Clean up the error message for display */}
+                             {error?.replace(/\{"error":.*message":"/, '').replace(/"\}/, '').substring(0, 150) + (error && error.length > 150 ? '...' : '')}
+                          </p>
+                        </div>
+                        
+                        {/* API KEY ERROR GUIDANCE */}
                         {isApiKeyError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
-                            <strong className="text-red-800 block mb-2">配置指南：</strong>
-                            <ol className="list-decimal list-inside space-y-1">
-                              <li>前往 Vercel 项目控制台</li>
-                              <li>进入 <strong>Settings</strong> {'>'} <strong>Environment Variables</strong></li>
-                              <li>确认 Key 为: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-900 font-mono">VITE_API_KEY</code></li>
-                              <li>Value: 填入您的 Google Gemini API Key</li>
-                              <li>重新部署项目 (Redeploy)</li>
+                            <div className="flex items-center gap-2 mb-2 border-b border-red-100 pb-2">
+                                <Settings className="w-4 h-4 text-red-600" />
+                                <strong className="text-red-800">Vercel 配置修复指南</strong>
+                            </div>
+                            <ol className="list-decimal list-inside space-y-1.5 mt-2">
+                              <li>前往 Vercel 项目控制台 {'>'} <strong>Settings</strong></li>
+                              <li>点击 <strong>Environment Variables</strong></li>
+                              <li>
+                                检查变量名是否为: <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-mono font-bold">VITE_API_KEY</code>
+                                <span className="block text-slate-400 text-[10px] pl-5">(不要使用 API_KEY)</span>
+                              </li>
+                              <li>
+                                <strong>关键步骤：</strong> 确保勾选了 <span className="font-semibold">Production</span>, Preview, Development。
+                              </li>
+                              <li>
+                                修改后，必须去 <strong>Deployments</strong> 页面点击 <strong className="text-indigo-600">Redeploy</strong> (重新部署) 才会生效。
+                              </li>
                             </ol>
                           </div>
                         )}
 
+                        {/* QUOTA ERROR GUIDANCE */}
                         {isQuotaError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-amber-200 text-left shadow-sm">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Clock className="w-4 h-4 text-amber-600" />
-                                <strong className="text-amber-800">配额不足 (Quota Exceeded)</strong>
+                            <div className="flex items-center gap-2 mb-2 border-b border-amber-100 pb-2">
+                                <RefreshCw className="w-4 h-4 text-amber-600" />
+                                <strong className="text-amber-800">解决方案</strong>
                             </div>
-                            <p className="mb-2 text-slate-600">您使用的 API Key 已达到免费额度限制或请求过于频繁。</p>
-                            <ul className="list-disc list-inside space-y-1 text-slate-500">
-                              <li>请等待几分钟后再重试</li>
-                              <li>如果您使用的是免费版 Key，每分钟/每天有调用次数限制</li>
-                              <li><a href="https://ai.google.dev/pricing" target="_blank" rel="noreferrer" className="underline text-indigo-600 hover:text-indigo-800">查看 API 限额说明</a></li>
+                            <p className="mb-2 text-slate-600">您的 API Key 已达到 Google Gemini 的免费调用限制。</p>
+                            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
+                              <li><strong>方案一（推荐）：</strong> 等待 1-2 分钟后再重试（免费版有每分钟限制）。</li>
+                              <li><strong>方案二：</strong> 检查 <a href="https://console.cloud.google.com/billing" target="_blank" rel="noreferrer" className="underline text-indigo-600">Google Cloud 账单</a> 状态。</li>
+                              <li><strong>方案三：</strong> 切换到付费 API 计划以获得更高配额。</li>
                             </ul>
+                            <div className="mt-3 text-center">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={handleGenerate} 
+                                    className="py-1 px-3 h-8 text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
+                                >
+                                    重试生成
+                                </Button>
+                            </div>
                           </div>
+                        )}
+                        
+                        {!isApiKeyError && !isQuotaError && (
+                             <div className="mt-2 text-xs text-slate-500">
+                                 请检查网络连接或更换图片重试
+                             </div>
                         )}
                       </div>
                     ) : (
@@ -305,14 +353,13 @@ const App: React.FC = () => {
               </div>
               
               {generatedImage && (
-                <div className="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                <div className="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-100 animate-in slide-in-from-bottom-2 duration-500">
                   <div className="flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-semibold text-indigo-900">AI 提示</h4>
+                      <h4 className="text-sm font-semibold text-indigo-900">AI 完成绘制</h4>
                       <p className="text-sm text-indigo-700 mt-1">
-                        已根据您的选择生成对应姿势和背景的三视图。
-                        如果细节不准确，可以在“额外指令”中补充说明。
+                        三视图已生成。如果对结果不满意，您可以尝试修改“额外指令”或更换背景颜色重新生成。
                       </p>
                     </div>
                   </div>
@@ -327,7 +374,7 @@ const App: React.FC = () => {
 
       <footer className="bg-white border-t border-slate-200 mt-auto py-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
-          <p>© {new Date().getFullYear()} CharView AI. Powered by Google Gemini.</p>
+          <p>© {new Date().getFullYear()} CharView AI. Powered by Google Gemini 2.5.</p>
         </div>
       </footer>
     </div>
