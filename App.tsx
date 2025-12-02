@@ -4,7 +4,7 @@ import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
 import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -86,7 +86,7 @@ const App: React.FC = () => {
   ];
 
   // Robust error detection using regex
-  const isApiKeyError = /api[ _]key|vite_api_key/i.test(error || '');
+  const isApiKeyError = /api[ _]key|google_api_key/i.test(error || '');
   const isQuotaError = /429|quota|resource_exhausted|exceeded|limit/i.test(error || '');
 
   return (
@@ -285,25 +285,22 @@ const App: React.FC = () => {
                           </p>
                         </div>
                         
-                        {/* API KEY ERROR GUIDANCE */}
+                        {/* API KEY ERROR GUIDANCE FOR LOCAL DEV */}
                         {isApiKeyError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
                             <div className="flex items-center gap-2 mb-2 border-b border-red-100 pb-2">
-                                <Settings className="w-4 h-4 text-red-600" />
-                                <strong className="text-red-800">Vercel 配置修复指南</strong>
+                                <FileCode className="w-4 h-4 text-red-600" />
+                                <strong className="text-red-800">本地配置指南</strong>
                             </div>
                             <ol className="list-decimal list-inside space-y-1.5 mt-2">
-                              <li>前往 Vercel 项目控制台 {'>'} <strong>Settings</strong></li>
-                              <li>点击 <strong>Environment Variables</strong></li>
+                              <li>在项目根目录下，找到 <code className="bg-slate-100 px-1 rounded">.env.example</code> 文件。</li>
+                              <li>将其复制并重命名为 <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-mono font-bold">.env</code></li>
                               <li>
-                                检查变量名是否为: <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-mono font-bold">VITE_API_KEY</code>
-                                <span className="block text-slate-400 text-[10px] pl-5">(不要使用 API_KEY)</span>
+                                用文本编辑器打开它，填入您的 API Key:<br/>
+                                <code className="block bg-slate-100 p-1 mt-1 rounded">GOOGLE_API_KEY=AIzaSy...</code>
                               </li>
                               <li>
-                                <strong>关键步骤：</strong> 确保勾选了 <span className="font-semibold">Production</span>, Preview, Development。
-                              </li>
-                              <li>
-                                修改后，必须去 <strong>Deployments</strong> 页面点击 <strong className="text-indigo-600">Redeploy</strong> (重新部署) 才会生效。
+                                保存文件，然后重启服务器 (如果正在运行)。
                               </li>
                             </ol>
                           </div>
@@ -380,7 +377,7 @@ const App: React.FC = () => {
           <div className="flex items-center justify-center gap-4 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
              <div className="flex items-center gap-1">
                 <Terminal className="w-3 h-3" />
-                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Dev Mode'}</span>
+                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Local Dev'}</span>
              </div>
              <div className="w-px h-3 bg-slate-200"></div>
              <div className="flex items-center gap-1">
