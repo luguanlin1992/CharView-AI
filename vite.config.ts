@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': processEnvDefine,
       'global': 'window',
+      '__BUILD_DATE__': JSON.stringify(new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })),
     },
   };
 });

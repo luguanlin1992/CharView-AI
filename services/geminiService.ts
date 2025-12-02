@@ -22,6 +22,21 @@ const getAiClient = () => {
 };
 
 /**
+ * Returns a safe masked version of the current API key for debugging purposes.
+ * e.g., "AIza...AbCd"
+ */
+export const getMaskedApiKey = (): string => {
+  try {
+    const key = process.env.API_KEY;
+    if (!key) return "未设置";
+    if (key.length < 10) return "格式无效";
+    return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+  } catch (e) {
+    return "读取错误";
+  }
+};
+
+/**
  * Generates a 3-view character sheet from an uploaded image.
  * Uses gemini-2.5-flash-image (Nano Banana).
  */

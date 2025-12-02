@@ -15,3 +15,8 @@ export interface GenerationConfig {
   prompt: string;
   originalImage: string | null; // base64
 }
+
+// Global variable injected by Vite
+declare global {
+  const __BUILD_DATE__: string;
+}

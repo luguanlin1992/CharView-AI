@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
-import { generateCharacterSheet, fileToBase64, PoseType } from './services/geminiService';
+import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -372,9 +372,21 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* FOOTER & DEBUG PANEL */}
       <footer className="bg-white border-t border-slate-200 mt-auto py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
+        <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm space-y-2">
           <p>© {new Date().getFullYear()} CharView AI. Powered by Google Gemini 2.5.</p>
+          
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
+             <div className="flex items-center gap-1">
+                <Terminal className="w-3 h-3" />
+                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Dev Mode'}</span>
+             </div>
+             <div className="w-px h-3 bg-slate-200"></div>
+             <div className="flex items-center gap-1">
+                <span>Key: {getMaskedApiKey()}</span>
+             </div>
+          </div>
         </div>
       </footer>
     </div>
