@@ -71,13 +71,41 @@ npm run dev
 
 ---
 
-## ⚠️ 常见问题
+## ☁️ Vercel 部署特别指南
+
+如果您将项目部署到 Vercel，请务必阅读以下常见问题，避免踩坑。
+
+### 1. 环境变量配置 (Critical)
+Vercel 不会读取您本地的 `.env` 文件。您必须在 Vercel 后台手动配置：
+
+1.  进入项目 **Settings** -> **Environment Variables**。
+2.  添加变量 `GOOGLE_API_KEY` (必填)。
+3.  如果是第三方中转，添加 `GOOGLE_BASE_URL`。
+
+### 2. 必须重新部署 (Redeploy)
+**这是最常见的错误！** 当您在 Vercel 后台添加或修改了环境变量后，它们**不会立即生效**。
+
+*   **解决方法**：
+    1.  进入 **Deployments** 页面。
+    2.  找到最新的部署记录，点击右侧的三个点 **...**。
+    3.  选择 **Redeploy**。
+    4.  等待构建完成，新的变量才会生效。
+
+### 3. Base URL 配置注意事项
+如果您使用 api.kuai.host 或其他中转站：
+*   **不要** 填写 OpenAI 格式的完整路径 (如 `/v1/chat/completions`)。
+*   本程序使用的是 Google 官方 SDK，SDK 会自动拼接 `/v1beta/models/...`。
+*   **正确做法**：只填写主机根地址，例如 `https://api.kuai.host` 或 `https://api.kuai.host/v1`。程序内部已内置清洗逻辑，会自动移除多余后缀以适配 Google SDK。
+
+---
+
+## ⚠️ 常见问题排查
 
 **Q: 提示 "API Key 未配置"？**
-A: 请检查 `.env` 文件是否存在，且变量名必须为 `GOOGLE_API_KEY`。修改 `.env` 后需要重启服务器。
+A: 本地请检查 `.env` 文件；Vercel 请检查 Settings 中的变量，并确保已 Redeploy。
 
 **Q: 提示 "API 配额不足 (429)"？**
 A: 这是由于 API Key 达到调用频率限制。请稍等片刻重试，或检查您的服务商配额。
 
-**Q: 第三方接口报错？**
-A: 请确保 `GOOGLE_BASE_URL` 填写正确。程序内置了清洗逻辑，会自动移除 `/v1/chat/completions` 等 OpenAI 格式后缀，因此您可以放心填写服务商提供的完整地址。
+**Q: 第三方接口报错 (404/400)？**
+A: 请查看浏览器控制台 (F12) 的 Console 输出。程序会打印 `[CharView AI] Initialized Client`，请确认连接的 URL 是否正确。通常是因为 Base URL 填写的路径过深导致的（参考上文 Base URL 配置）。

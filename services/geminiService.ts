@@ -4,14 +4,18 @@ export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
 /**
  * Cleans the Base URL to ensure compatibility with Google GenAI SDK.
- * Handles cases where users copy OpenAI-style endpoints or include versions.
  * 
- * Target format for SDK: "https://api.provider.com" (SDK appends /v1beta/...)
+ * WHY THIS IS NEEDED:
+ * Many users copy "OpenAI-compatible" endpoints from third-party providers (e.g., api.kuai.host).
+ * These often look like: "https://api.kuai.host/v1/chat/completions"
  * 
- * Input Examples -> Output:
- * - https://api.kuai.host/v1/chat/completions -> https://api.kuai.host
- * - https://api.kuai.host/v1 -> https://api.kuai.host
- * - https://api.kuai.host -> https://api.kuai.host
+ * However, the Google GenAI SDK (@google/genai) automatically appends its own versioning paths
+ * (e.g., "/v1beta/models/...").
+ * 
+ * If we pass a dirty URL, the request becomes:
+ * "https://api.kuai.host/v1/chat/completions/v1beta/models/..." -> 404 Not Found.
+ * 
+ * This function strips specific suffixes to extract the valid ROOT host.
  */
 const cleanBaseUrl = (url: string): string => {
   if (!url || url.trim() === '') return '';
@@ -22,19 +26,15 @@ const cleanBaseUrl = (url: string): string => {
   // 1. Remove trailing slashes first
   cleaned = cleaned.replace(/\/+$/, '');
   
-  // 2. Remove specific OpenAI or Version suffixes
-  // The SDK (@google/genai) expects the ROOT host because it appends /v1beta/models/... internally.
-  // We must strip common paths that users might paste from OpenAI docs.
+  // 2. Remove specific suffixes iteratively
   const suffixesToRemove = [
     '/chat/completions', // OpenAI style
     '/completions',
     '/chat',
     '/v1beta',           // Google SDK adds this automatically
-    '/v1'                // Common proxy version prefix
+    '/v1'                // Common proxy version prefix (SDK often handles versioning)
   ];
 
-  // Iteratively remove suffixes to handle cases like /v1/chat/completions
-  // We loop to catch nested suffixes (e.g. removing /chat/completions might leave /v1)
   let modified = true;
   while (modified) {
     modified = false;
@@ -47,10 +47,9 @@ const cleanBaseUrl = (url: string): string => {
     }
   }
 
-  // Debug log to help users verify their proxy config
-  // This log ensures you can see exactly what URL is being passed to the SDK
+  // Debug log: Essential for troubleshooting Vercel deployments
   if (original !== cleaned) {
-    console.debug(`[CharView AI] Cleaned Base URL for SDK compatibility:\n  Original: "${original}"\n  Cleaned:  "${cleaned}"`);
+    console.debug(`[CharView AI] URL Cleaned for SDK:\n  Input:  "${original}"\n  Output: "${cleaned}"`);
   }
 
   return cleaned;
@@ -67,11 +66,12 @@ const getAiClient = () => {
   // Debug log
   if (!apiKey) {
     console.warn("[CharView AI] API Key missing.");
-    throw new Error("API Key 未配置。请在项目根目录下创建 .env 文件并配置 GOOGLE_API_KEY。");
+    throw new Error("API Key 未配置。请在 .env (本地) 或 Vercel Settings 中配置 GOOGLE_API_KEY。");
   } else {
     // Log the active configuration mode
-    const mode = baseUrl ? `Custom Proxy (${baseUrl})` : 'Official Google API (Default)';
-    console.log(`[CharView AI] Initialized Client: ${mode}`);
+    const mode = baseUrl ? `Custom Proxy` : 'Official Google API';
+    const target = baseUrl || 'https://generativelanguage.googleapis.com';
+    console.log(`[CharView AI] Initialized Client:\n  Mode: ${mode}\n  Target: ${target}`);
   }
 
   const options: any = { apiKey };
