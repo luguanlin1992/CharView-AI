@@ -6,19 +6,20 @@ export default defineConfig(({ mode }) => {
   const loadedEnv = loadEnv(mode, (process as any).cwd(), '');
   
   // Read configuration from environment
-  const apiKey = loadedEnv.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || '';
-  const baseUrl = loadedEnv.GOOGLE_BASE_URL || process.env.GOOGLE_BASE_URL || '';
-  const modelId = loadedEnv.GOOGLE_MODEL_ID || process.env.GOOGLE_MODEL_ID || '';
+  // We prioritize process.env for Vercel/Node environments, fall back to loadedEnv for local .env
+  const apiKey = process.env.GOOGLE_API_KEY || loadedEnv.GOOGLE_API_KEY || '';
+  const baseUrl = process.env.GOOGLE_BASE_URL || loadedEnv.GOOGLE_BASE_URL || '';
+  const modelId = process.env.GOOGLE_MODEL_ID || loadedEnv.GOOGLE_MODEL_ID || '';
 
   // Log configuration status (masked)
   if (apiKey) {
-    console.log('\x1b[32m%s\x1b[0m', '✅ Configuration: GOOGLE_API_KEY loaded.');
+    console.log('\x1b[32m%s\x1b[0m', '✅ Configuration: GOOGLE_API_KEY found.');
   } else {
-    console.log('\x1b[33m%s\x1b[0m', '⚠️  Configuration: GOOGLE_API_KEY missing in .env file.');
+    console.log('\x1b[33m%s\x1b[0m', '⚠️  Configuration: GOOGLE_API_KEY missing.');
   }
 
   if (baseUrl) {
-    console.log('\x1b[36m%s\x1b[0m', `ℹ️  Configuration: Custom Base URL set to ${baseUrl}`);
+    console.log('\x1b[36m%s\x1b[0m', `ℹ️  Configuration: Custom Base URL detected: ${baseUrl}`);
   }
 
   return {

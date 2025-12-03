@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
-import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey } from './services/geminiService';
+import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey, getApiConfigInfo } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode, MousePointerClick } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode, MousePointerClick, Server } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -54,13 +54,9 @@ const App: React.FC = () => {
       setAppState(AppState.SUCCESS);
     } catch (err: any) {
       console.error(err);
-      // Capture the specific error message thrown by the service
-      // Ensure we capture JSON error messages if they come in that format
       let errorMessage = err.message || "生成三视图失败，请重试。";
       if (typeof err === 'object' && err.toString().includes('[object Object]')) {
-         try {
-            errorMessage = JSON.stringify(err);
-         } catch(e) {}
+         try { errorMessage = JSON.stringify(err); } catch(e) {}
       }
       setError(errorMessage);
       setAppState(AppState.ERROR);
@@ -85,9 +81,11 @@ const App: React.FC = () => {
     { name: '绿幕', value: '#00FF00' },
   ];
 
-  // Robust error detection using regex
   const isApiKeyError = /api[ _]key|google_api_key/i.test(error || '');
   const isQuotaError = /429|quota|resource_exhausted|exceeded|limit/i.test(error || '');
+  
+  // Get debug info
+  const apiInfo = getApiConfigInfo();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
@@ -141,9 +139,7 @@ const App: React.FC = () => {
                     <button
                       onClick={() => setPoseType('ORIGINAL')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'ORIGINAL' 
-                          ? 'bg-indigo-600 text-white shadow-md' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        poseType === 'ORIGINAL' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
                       原动作保持
@@ -151,9 +147,7 @@ const App: React.FC = () => {
                     <button
                       onClick={() => setPoseType('A-POSE')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'A-POSE' 
-                          ? 'bg-indigo-600 text-white shadow-md' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        poseType === 'A-POSE' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
                       A-pose 姿势
@@ -161,9 +155,7 @@ const App: React.FC = () => {
                     <button
                       onClick={() => setPoseType('T-POSE')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'T-POSE' 
-                          ? 'bg-indigo-600 text-white shadow-md' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        poseType === 'T-POSE' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
                       T-pose 姿势
@@ -267,11 +259,7 @@ const App: React.FC = () => {
                     ) : appState === AppState.ERROR ? (
                       <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in zoom-in-95 duration-300">
                         <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isQuotaError ? 'bg-amber-100' : 'bg-red-100'}`}>
-                          {isQuotaError ? (
-                            <Clock className="w-8 h-8 text-amber-600" />
-                          ) : (
-                            <AlertTriangle className="w-8 h-8 text-red-600" />
-                          )}
+                          {isQuotaError ? <Clock className="w-8 h-8 text-amber-600" /> : <AlertTriangle className="w-8 h-8 text-red-600" />}
                         </div>
                         
                         <h3 className={`text-xl font-bold mb-2 ${isQuotaError ? 'text-amber-900' : 'text-red-900'}`}>
@@ -280,12 +268,11 @@ const App: React.FC = () => {
                         
                         <div className="max-h-32 overflow-y-auto w-full mb-4 text-center">
                           <p className={`text-sm break-words ${isQuotaError ? 'text-amber-800' : 'text-red-700'}`}>
-                             {/* Clean up the error message for display */}
                              {error?.replace(/\{"error":.*message":"/, '').replace(/"\}/, '').substring(0, 150) + (error && error.length > 150 ? '...' : '')}
                           </p>
                         </div>
                         
-                        {/* API KEY ERROR GUIDANCE FOR LOCAL DEV */}
+                        {/* LOCAL DEV ERROR */}
                         {isApiKeyError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
                             <div className="flex items-center gap-2 mb-2 border-b border-red-100 pb-2">
@@ -293,48 +280,28 @@ const App: React.FC = () => {
                                 <strong className="text-red-800 text-sm">本地配置指南</strong>
                             </div>
                             <ol className="list-decimal list-inside space-y-2 mt-2 text-sm">
-                              <li>在项目根目录下，找到 <code className="bg-slate-100 px-1 rounded">.env.example</code> 文件。</li>
-                              <li>将其复制并重命名为 <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-mono font-bold">.env</code></li>
-                              <li>
-                                用文本编辑器打开它，填入您的 API Key:<br/>
-                                <code className="block bg-slate-100 p-2 mt-1 rounded text-xs">GOOGLE_API_KEY=AIzaSy...</code>
-                              </li>
-                              <li>
-                                保存文件，然后重启服务器 (如果正在运行)。
-                              </li>
+                              <li>找到 <code className="bg-slate-100 px-1 rounded">.env.example</code>，重命名为 <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-bold">.env</code></li>
+                              <li>在文件中填入 <code className="bg-slate-100 p-1 rounded">GOOGLE_API_KEY</code></li>
+                              <li>重启开发服务器。</li>
                             </ol>
                           </div>
                         )}
 
-                        {/* QUOTA ERROR GUIDANCE */}
+                        {/* QUOTA ERROR */}
                         {isQuotaError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-amber-200 text-left shadow-sm">
                             <div className="flex items-center gap-2 mb-2 border-b border-amber-100 pb-2">
                                 <RefreshCw className="w-5 h-5 text-amber-600" />
                                 <strong className="text-amber-800 text-sm">解决方案</strong>
                             </div>
-                            <p className="mb-2 text-slate-600 text-sm">您的 API Key 已达到 Google Gemini 的免费调用限制。</p>
                             <ul className="list-disc list-inside space-y-1.5 text-slate-600 text-sm">
-                              <li><strong>方案一（推荐）：</strong> 等待 1-2 分钟后再重试（免费版有每分钟限制）。</li>
-                              <li><strong>方案二：</strong> 检查 <a href="https://console.cloud.google.com/billing" target="_blank" rel="noreferrer" className="underline text-indigo-600">Google Cloud 账单</a> 状态。</li>
-                              <li><strong>方案三：</strong> 切换到付费 API 计划以获得更高配额。</li>
+                              <li><strong>推荐：</strong> 稍等 1-2 分钟重试。</li>
+                              <li><strong>检查：</strong> 您的 API 余额或配额。</li>
                             </ul>
                             <div className="mt-4 text-center">
-                                <Button 
-                                    variant="outline" 
-                                    onClick={handleGenerate} 
-                                    className="py-1.5 px-4 h-auto text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
-                                >
-                                    重试生成
-                                </Button>
+                                <Button variant="outline" onClick={handleGenerate} className="py-1.5 px-4 h-auto text-xs border-amber-300 text-amber-800 hover:bg-amber-50">重试生成</Button>
                             </div>
                           </div>
-                        )}
-                        
-                        {!isApiKeyError && !isQuotaError && (
-                             <div className="mt-2 text-xs text-slate-500">
-                                 请检查网络连接或更换图片重试
-                             </div>
                         )}
                       </div>
                     ) : (
@@ -352,25 +319,16 @@ const App: React.FC = () => {
                           </div>
                           <ul className="space-y-4">
                             <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">1</div>
-                              <span className="leading-relaxed">
-                                <strong className="font-medium text-slate-900 block mb-0.5">上传立绘</strong>
-                                在左侧区域上传一张清晰的角色单人立绘（JPG/PNG）。
-                              </span>
+                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">1</span>
+                              <span><strong className="font-medium text-slate-900">上传立绘</strong>：左侧上传角色单人立绘。</span>
                             </li>
                             <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">2</div>
-                              <span className="leading-relaxed">
-                                <strong className="font-medium text-slate-900 block mb-0.5">AI 生成</strong>
-                                配置姿势与背景后，点击“生成三视图”按钮，AI 将自动绘制三视图。
-                              </span>
+                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">2</span>
+                              <span><strong className="font-medium text-slate-900">AI 生成</strong>：配置参数后点击生成。</span>
                             </li>
                              <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">3</div>
-                              <span className="leading-relaxed">
-                                <strong className="font-medium text-slate-900 block mb-0.5">下载结果</strong>
-                                生成完成后，点击右上角的 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs mx-1"><Download className="w-3 h-3 mr-1"/> 下载图片</span> 按钮保存大图。
-                              </span>
+                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">3</span>
+                              <span><strong className="font-medium text-slate-900">下载</strong>：点击右上角按钮保存。</span>
                             </li>
                           </ul>
                         </div>
@@ -386,9 +344,7 @@ const App: React.FC = () => {
                     <Sparkles className="w-6 h-6 text-indigo-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-sm font-semibold text-indigo-900">AI 完成绘制</h4>
-                      <p className="text-sm text-indigo-700 mt-1">
-                        三视图已生成。如果对结果不满意，您可以尝试修改“额外指令”或更换背景颜色重新生成。
-                      </p>
+                      <p className="text-sm text-indigo-700 mt-1">三视图已生成。可尝试修改指令或背景重新生成。</p>
                     </div>
                   </div>
                 </div>
@@ -405,14 +361,17 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm space-y-2">
           <p>© {new Date().getFullYear()} CharView AI. Powered by Google Gemini 2.5.</p>
           
-          <div className="flex items-center justify-center gap-4 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
-             <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
+             <div className="flex items-center gap-1" title="Build Time">
                 <Terminal className="w-3 h-3" />
-                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Local Dev'}</span>
+                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Local'}</span>
              </div>
-             <div className="w-px h-3 bg-slate-200"></div>
-             <div className="flex items-center gap-1">
+             <div className="flex items-center gap-1" title="API Key Mask">
                 <span>Key: {getMaskedApiKey()}</span>
+             </div>
+             <div className="flex items-center gap-1" title="API Source">
+                <Server className="w-3 h-3" />
+                <span>Source: <span className={apiInfo.isCustom ? "text-indigo-400 font-medium" : ""}>{apiInfo.source}</span></span>
              </div>
           </div>
         </div>

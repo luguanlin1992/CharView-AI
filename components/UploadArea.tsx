@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 
 interface UploadAreaProps {
   onImageSelected: (file: File) => void;
@@ -93,8 +93,8 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
           <Upload className="w-12 h-12 text-slate-700" />
         </div>
         <div className="text-center">
-          <p className="text-xl font-bold text-slate-900">点击或拖拽上传图片</p>
-          <p className="text-base mt-2">支持上传 JPG, PNG 格式的角色立绘</p>
+          <p className="text-xl font-bold text-slate-900">点击或拖拽上传</p>
+          <p className="text-base mt-2">支持 JPG, PNG 立绘</p>
         </div>
       </div>
     </div>

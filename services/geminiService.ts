@@ -21,18 +21,20 @@ const cleanBaseUrl = (url: string): string => {
   if (!url || url.trim() === '') return '';
   
   let cleaned = url.trim();
-  const original = cleaned;
   
   // 1. Remove trailing slashes first
   cleaned = cleaned.replace(/\/+$/, '');
   
-  // 2. Remove specific suffixes iteratively
+  // 2. Remove specific suffixes iteratively to get to the root/base that SDK expects
+  // The SDK usually expects the root host (e.g. https://api.kuai.host) 
+  // OR the version root (https://api.kuai.host/v1beta) depending on strictness.
+  // Generally, stripping to root is safest as SDK appends /v1beta.
   const suffixesToRemove = [
     '/chat/completions', // OpenAI style
     '/completions',
     '/chat',
     '/v1beta',           // Google SDK adds this automatically
-    '/v1'                // Common proxy version prefix (SDK often handles versioning)
+    '/v1'                // Common proxy version prefix
   ];
 
   let modified = true;
@@ -47,11 +49,6 @@ const cleanBaseUrl = (url: string): string => {
     }
   }
 
-  // Debug log: Essential for troubleshooting Vercel deployments
-  if (original !== cleaned) {
-    console.debug(`[CharView AI] URL Cleaned for SDK:\n  Input:  "${original}"\n  Output: "${cleaned}"`);
-  }
-
   return cleaned;
 };
 
@@ -63,26 +60,34 @@ const getAiClient = () => {
   const rawBaseUrl = process.env.GOOGLE_BASE_URL; // Injected by build config
   const baseUrl = cleanBaseUrl(rawBaseUrl || '');
   
-  // Debug log
   if (!apiKey) {
     console.warn("[CharView AI] API Key missing.");
     throw new Error("API Key 未配置。请在 .env (本地) 或 Vercel Settings 中配置 GOOGLE_API_KEY。");
-  } else {
-    // Log the active configuration mode
-    const mode = baseUrl ? `Custom Proxy` : 'Official Google API';
-    const target = baseUrl || 'https://generativelanguage.googleapis.com';
-    console.log(`[CharView AI] Initialized Client:\n  Mode: ${mode}\n  Target: ${target}`);
   }
 
   const options: any = { apiKey };
   
   // Only set baseUrl if user provided a valid proxy address.
-  // If empty, GoogleGenAI SDK defaults to https://generativelanguage.googleapis.com (Correct for Official)
   if (baseUrl) {
     options.baseUrl = baseUrl;
+    console.log(`[CharView AI] Using Proxy: ${baseUrl}`);
+  } else {
+    console.log(`[CharView AI] Using Official Google API`);
   }
 
   return new GoogleGenAI(options);
+};
+
+/**
+ * Helper to get current config info for UI debugging
+ */
+export const getApiConfigInfo = () => {
+  const rawBaseUrl = process.env.GOOGLE_BASE_URL;
+  const baseUrl = cleanBaseUrl(rawBaseUrl || '');
+  return {
+    isCustom: !!baseUrl,
+    source: baseUrl ? `Proxy: ${baseUrl}` : 'Official Google'
+  };
 };
 
 /**
@@ -143,42 +148,29 @@ export const generateCharacterSheet = async (
       6. High quality, detailed, anime or semi-realistic style suitable for 3D modeling references.
     `;
 
-    // Append user instructions if any
     const fullPrompt = customInstruction 
       ? `${basePrompt}\nAdditional Instruction: ${customInstruction}`
       : basePrompt;
 
-    // Parse mimeType and data from base64 string to be robust
     const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
     const mimeType = matches ? matches[1] : 'image/jpeg';
     const data = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
 
-    console.log(`[CharView AI] Generating content...\n  Model: ${modelId}\n  Pose: ${poseType}`);
+    console.log(`[CharView AI] Requesting Model: ${modelId}`);
 
     const response = await ai.models.generateContent({
       model: modelId,
       contents: {
         parts: [
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: data
-            }
-          },
-          {
-            text: fullPrompt
-          }
+          { inlineData: { mimeType, data } },
+          { text: fullPrompt }
         ]
       },
       config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-        }
+        imageConfig: { aspectRatio: "16:9" }
       }
     });
 
-    // Extract image from response
-    // The response might contain text or inlineData (image). We look for inlineData.
     if (response.candidates && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData && part.inlineData.data) {
@@ -194,9 +186,6 @@ export const generateCharacterSheet = async (
   }
 };
 
-/**
- * Helper to convert File to Base64 string
- */
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

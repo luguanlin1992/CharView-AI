@@ -6,106 +6,84 @@ CharView AI 是一款面向游戏角色设计师的在线工具。利用 Google 
 
 *   **AI 智能生成**：基于 Gemini 2.5 Flash Image，精准理解角色特征。
 *   **多视角合成**：自动生成并在同一画布上排列正、侧、背三个视角。
-*   **姿势控制**：
-    *   **原动作保持**：保留原画姿态。
-    *   **A-pose**：适合建模的标准 A 字姿势。
-    *   **T-pose**：适合骨骼绑定的 T 字姿势。
-*   **背景自定义**：支持纯色背景（白、灰、绿幕等）或自定义颜色。
-*   **灵活配置**：完美兼容官方直连和第三方中转服务。
+*   **姿势控制**：支持 原动作保持、A-pose、T-pose。
+*   **背景自定义**：支持纯色背景或自定义颜色。
+*   **灵活配置**：完美兼容官方直连和第三方中转服务 (如 api.kuai.host)。
 
 ## 🛠️ 技术栈
 
-*   **前端框架**：React 19
-*   **构建工具**：Vite 6
+*   **前端框架**：React 19 + Vite 6
 *   **样式库**：Tailwind CSS
-*   **AI 模型**：Google Gemini API
+*   **AI 模型**：Google Gemini API (@google/genai)
+
+---
 
 ## 🚀 快速开始 (本地部署)
 
-请按照以下步骤在本地运行项目。
-
 ### 1. 安装依赖
-
-确保本地已安装 Node.js (推荐 v18+)。
-
 ```bash
 npm install
 ```
 
-### 2. 配置环境变量 (关键步骤)
+### 2. 配置环境变量
+在项目根目录下，将 `.env.example` 复制并重命名为 `.env`，然后填入配置：
 
-本项目需要配置 API Key 才能运行。
-
-1.  在项目根目录下，找到配置文件模板 `.env.example`。
-2.  将其复制并重命名为 `.env`。
-3.  打开 `.env` 文件，填入您的配置信息：
-
-#### 方案 A：官方原生调用 (Official)
-如果您直接使用 Google 提供的 API Key：
+**方案 A：官方直连 (推荐)**
 ```ini
-GOOGLE_API_KEY=AIzaSy...
-# 注意：官方直连时，请保持 GOOGLE_BASE_URL 为空！
-GOOGLE_BASE_URL=
+GOOGLE_API_KEY=AIzaSy... (您的 Google API Key)
+GOOGLE_BASE_URL= (保持为空)
 ```
 
-#### 方案 B：第三方平台调用 (Proxy/Third-Party)
-如果您使用如 `api.kuai.host` 等中转服务：
-
+**方案 B：第三方中转 (如 api.kuai.host)**
 ```ini
-# 1. 填写第三方提供的 Token
-GOOGLE_API_KEY=sk-xxxx...
-
-# 2. 填写接口地址
-# 程序会自动清洗地址后缀，您可以使用以下任意一种格式：
-# 例如：https://api.kuai.host
+GOOGLE_API_KEY=sk-xxxx... (您的中转 Key)
+# 填写中转地址，例如：
 GOOGLE_BASE_URL=https://api.kuai.host
 ```
 
-### 3. 启动开发服务器
-
+### 3. 启动
 ```bash
 npm run dev
 ```
 
-启动后，访问终端中显示的地址（通常是 `http://localhost:5173`）即可使用。
+---
+
+## ☁️ Vercel 部署避坑指南 (必读)
+
+如果您部署在 Vercel 遇到问题，**90% 是因为以下两点**：
+
+### 1. 环境变量修改后必须 Redeploy ⚠️
+在 Vercel 后台 (Settings -> Environment Variables) 添加或修改 `GOOGLE_API_KEY` / `GOOGLE_BASE_URL` 后，**变量不会立即生效！**
+
+**解决方法：**
+1.  进入 Vercel 项目的 **Deployments** 页面。
+2.  找到当前最新的 Deployment，点击右侧三个点 **...**。
+3.  选择 **Redeploy**。
+4.  等待构建完成后，新的变量才会注入到代码中。
+
+### 2. 第三方 Base URL 配置规则
+本目使用 Google 官方 SDK (`@google/genai`)。该 SDK 会自动在 Base URL 后拼接 `/v1beta/models/...`。
+
+*   **❌ 错误写法**：`https://api.kuai.host/v1/chat/completions` (这是 OpenAI 格式，会导致 404)
+*   **✅ 正确写法**：`https://api.kuai.host` (程序会自动处理后缀)
+*   **✅ 也支持**：`https://api.kuai.host/v1beta` (程序会自动清洗重复后缀)
+
+**调试技巧**：
+部署后查看网页底部的 Footer 区域，会显示当前的 **API Source**。
+*   如果显示 `Source: Official` 但您使用了中转，说明环境变量未生效（请 Redeploy）。
+*   如果显示 `Source: Proxy: ...`，说明配置已生效。
 
 ---
 
-## ☁️ Vercel 部署特别指南
+## ⚠️ 常见报错
 
-如果您将项目部署到 Vercel，请务必阅读以下常见问题，避免踩坑。
+**Q: API 配额不足 (429 Resource Exhausted)**
+A: 您的 Key 触发了频率限制。
+*   如果是官方 Key：免费版有每分钟限制，请稍等再试。
+*   如果是中转 Key：请检查您在服务商处的余额或配额。
 
-### 1. 环境变量配置 (Critical)
-Vercel 不会读取您本地的 `.env` 文件。您必须在 Vercel 后台手动配置：
+**Q: 生成失败 / 404 Not Found**
+A: 通常是 Base URL 配置错误。请确保 `GOOGLE_BASE_URL` 是主机根地址（如 `https://api.kuai.host`），而不是 OpenAI 的 chat 接口地址。
 
-1.  进入项目 **Settings** -> **Environment Variables**。
-2.  添加变量 `GOOGLE_API_KEY` (必填)。
-3.  如果是第三方中转，添加 `GOOGLE_BASE_URL`。
-
-### 2. 必须重新部署 (Redeploy)
-**这是最常见的错误！** 当您在 Vercel 后台添加或修改了环境变量后，它们**不会立即生效**。
-
-*   **解决方法**：
-    1.  进入 **Deployments** 页面。
-    2.  找到最新的部署记录，点击右侧的三个点 **...**。
-    3.  选择 **Redeploy**。
-    4.  等待构建完成，新的变量才会生效。
-
-### 3. Base URL 配置注意事项
-如果您使用 api.kuai.host 或其他中转站：
-*   **不要** 填写 OpenAI 格式的完整路径 (如 `/v1/chat/completions`)。
-*   本程序使用的是 Google 官方 SDK，SDK 会自动拼接 `/v1beta/models/...`。
-*   **正确做法**：只填写主机根地址，例如 `https://api.kuai.host` 或 `https://api.kuai.host/v1`。程序内部已内置清洗逻辑，会自动移除多余后缀以适配 Google SDK。
-
----
-
-## ⚠️ 常见问题排查
-
-**Q: 提示 "API Key 未配置"？**
-A: 本地请检查 `.env` 文件；Vercel 请检查 Settings 中的变量，并确保已 Redeploy。
-
-**Q: 提示 "API 配额不足 (429)"？**
-A: 这是由于 API Key 达到调用频率限制。请稍等片刻重试，或检查您的服务商配额。
-
-**Q: 第三方接口报错 (404/400)？**
-A: 请查看浏览器控制台 (F12) 的 Console 输出。程序会打印 `[CharView AI] Initialized Client`，请确认连接的 URL 是否正确。通常是因为 Base URL 填写的路径过深导致的（参考上文 Base URL 配置）。
+**Q: 网页白屏或无反应**
+A: 请检查浏览器控制台 (F12)。如果看到 "API Key missing"，请参考上文 "Vercel 部署" 部分配置环境变量。
