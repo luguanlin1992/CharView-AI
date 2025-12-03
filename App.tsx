@@ -4,7 +4,7 @@ import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
 import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey } from './services/geminiService';
 import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode } from 'lucide-react';
+import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode, MousePointerClick } from 'lucide-react';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -134,7 +134,7 @@ const App: React.FC = () => {
                 {/* Pose Selection */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
+                    <Users className="w-5 h-5 text-slate-600" />
                     姿势选择
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -174,7 +174,7 @@ const App: React.FC = () => {
                 {/* Background Selection */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <PaintBucket className="w-4 h-4" />
+                    <PaintBucket className="w-5 h-5 text-slate-600" />
                     背景颜色
                   </label>
                   <div className="flex flex-wrap items-center gap-3">
@@ -224,7 +224,7 @@ const App: React.FC = () => {
                   className="w-full"
                 >
                   {appState === AppState.GENERATING ? '正在生成三视图...' : '生成三视图'}
-                  {!appState.startsWith('GEN') && <Wand2 className="w-4 h-4 ml-2" />}
+                  {!appState.startsWith('GEN') && <Wand2 className="w-5 h-5 ml-2" />}
                 </Button>
               </div>
             </div>
@@ -240,7 +240,7 @@ const App: React.FC = () => {
                 </h2>
                 {generatedImage && (
                   <Button variant="secondary" onClick={handleDownload} className="py-2 px-4 text-sm">
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-5 h-5 mr-2" />
                     下载图片
                   </Button>
                 )}
@@ -257,24 +257,24 @@ const App: React.FC = () => {
                     className="w-full h-auto max-h-full object-contain"
                   />
                 ) : (
-                  <div className="text-center text-slate-400 p-8 w-full">
+                  <div className="w-full h-full flex flex-col items-center justify-center p-8">
                     {appState === AppState.GENERATING ? (
                       <div className="flex flex-col items-center animate-pulse">
-                        <Sparkles className="w-12 h-12 text-indigo-400 mb-4" />
-                        <p className="text-lg font-medium text-slate-600">AI 正在绘制三视图...</p>
-                        <p className="text-sm">这可能需要几秒钟</p>
+                        <Sparkles className="w-16 h-16 text-indigo-400 mb-6" />
+                        <p className="text-xl font-medium text-slate-600">AI 正在绘制三视图...</p>
+                        <p className="text-base mt-2">这可能需要几秒钟</p>
                       </div>
                     ) : appState === AppState.ERROR ? (
                       <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in zoom-in-95 duration-300">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${isQuotaError ? 'bg-amber-100' : 'bg-red-100'}`}>
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isQuotaError ? 'bg-amber-100' : 'bg-red-100'}`}>
                           {isQuotaError ? (
-                            <Clock className="w-7 h-7 text-amber-600" />
+                            <Clock className="w-8 h-8 text-amber-600" />
                           ) : (
-                            <AlertTriangle className="w-7 h-7 text-red-600" />
+                            <AlertTriangle className="w-8 h-8 text-red-600" />
                           )}
                         </div>
                         
-                        <h3 className={`text-lg font-bold mb-2 ${isQuotaError ? 'text-amber-900' : 'text-red-900'}`}>
+                        <h3 className={`text-xl font-bold mb-2 ${isQuotaError ? 'text-amber-900' : 'text-red-900'}`}>
                           {isQuotaError ? 'API 配额不足 (429)' : '生成失败'}
                         </h3>
                         
@@ -289,15 +289,15 @@ const App: React.FC = () => {
                         {isApiKeyError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
                             <div className="flex items-center gap-2 mb-2 border-b border-red-100 pb-2">
-                                <FileCode className="w-4 h-4 text-red-600" />
-                                <strong className="text-red-800">本地配置指南</strong>
+                                <FileCode className="w-5 h-5 text-red-600" />
+                                <strong className="text-red-800 text-sm">本地配置指南</strong>
                             </div>
-                            <ol className="list-decimal list-inside space-y-1.5 mt-2">
+                            <ol className="list-decimal list-inside space-y-2 mt-2 text-sm">
                               <li>在项目根目录下，找到 <code className="bg-slate-100 px-1 rounded">.env.example</code> 文件。</li>
                               <li>将其复制并重命名为 <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-mono font-bold">.env</code></li>
                               <li>
                                 用文本编辑器打开它，填入您的 API Key:<br/>
-                                <code className="block bg-slate-100 p-1 mt-1 rounded">GOOGLE_API_KEY=AIzaSy...</code>
+                                <code className="block bg-slate-100 p-2 mt-1 rounded text-xs">GOOGLE_API_KEY=AIzaSy...</code>
                               </li>
                               <li>
                                 保存文件，然后重启服务器 (如果正在运行)。
@@ -310,20 +310,20 @@ const App: React.FC = () => {
                         {isQuotaError && (
                           <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-amber-200 text-left shadow-sm">
                             <div className="flex items-center gap-2 mb-2 border-b border-amber-100 pb-2">
-                                <RefreshCw className="w-4 h-4 text-amber-600" />
-                                <strong className="text-amber-800">解决方案</strong>
+                                <RefreshCw className="w-5 h-5 text-amber-600" />
+                                <strong className="text-amber-800 text-sm">解决方案</strong>
                             </div>
-                            <p className="mb-2 text-slate-600">您的 API Key 已达到 Google Gemini 的免费调用限制。</p>
-                            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
+                            <p className="mb-2 text-slate-600 text-sm">您的 API Key 已达到 Google Gemini 的免费调用限制。</p>
+                            <ul className="list-disc list-inside space-y-1.5 text-slate-600 text-sm">
                               <li><strong>方案一（推荐）：</strong> 等待 1-2 分钟后再重试（免费版有每分钟限制）。</li>
                               <li><strong>方案二：</strong> 检查 <a href="https://console.cloud.google.com/billing" target="_blank" rel="noreferrer" className="underline text-indigo-600">Google Cloud 账单</a> 状态。</li>
                               <li><strong>方案三：</strong> 切换到付费 API 计划以获得更高配额。</li>
                             </ul>
-                            <div className="mt-3 text-center">
+                            <div className="mt-4 text-center">
                                 <Button 
                                     variant="outline" 
                                     onClick={handleGenerate} 
-                                    className="py-1 px-3 h-8 text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
+                                    className="py-1.5 px-4 h-auto text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
                                 >
                                     重试生成
                                 </Button>
@@ -338,11 +338,42 @@ const App: React.FC = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                           <ArrowRight className="w-6 h-6 text-slate-300" />
+                      <div className="flex flex-col items-center max-w-sm mx-auto text-center px-4">
+                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 border-2 border-slate-100 shadow-inner">
+                           <ArrowRight className="w-10 h-10 text-slate-300" />
                         </div>
-                        <p>生成的图片将显示在这里</p>
+                        <h3 className="text-xl font-semibold text-slate-700 mb-2">准备生成</h3>
+                        <p className="text-slate-500 mb-8">三视图生成结果将显示在这里</p>
+                        
+                        <div className="w-full bg-white rounded-xl border border-slate-200 p-5 shadow-sm text-left">
+                          <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+                            <MousePointerClick className="w-5 h-5 text-indigo-500" />
+                            <h4 className="font-semibold text-slate-800">操作指南</h4>
+                          </div>
+                          <ul className="space-y-4">
+                            <li className="flex items-start gap-3 text-sm text-slate-600">
+                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">1</div>
+                              <span className="leading-relaxed">
+                                <strong className="font-medium text-slate-900 block mb-0.5">上传立绘</strong>
+                                在左侧区域上传一张清晰的角色单人立绘（JPG/PNG）。
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-3 text-sm text-slate-600">
+                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">2</div>
+                              <span className="leading-relaxed">
+                                <strong className="font-medium text-slate-900 block mb-0.5">AI 生成</strong>
+                                配置姿势与背景后，点击“生成三视图”按钮，AI 将自动绘制三视图。
+                              </span>
+                            </li>
+                             <li className="flex items-start gap-3 text-sm text-slate-600">
+                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">3</div>
+                              <span className="leading-relaxed">
+                                <strong className="font-medium text-slate-900 block mb-0.5">下载结果</strong>
+                                生成完成后，点击右上角的 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs mx-1"><Download className="w-3 h-3 mr-1"/> 下载图片</span> 按钮保存大图。
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -352,7 +383,7 @@ const App: React.FC = () => {
               {generatedImage && (
                 <div className="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-100 animate-in slide-in-from-bottom-2 duration-500">
                   <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                    <Sparkles className="w-6 h-6 text-indigo-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-sm font-semibold text-indigo-900">AI 完成绘制</h4>
                       <p className="text-sm text-indigo-700 mt-1">

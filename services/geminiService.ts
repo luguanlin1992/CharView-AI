@@ -2,34 +2,98 @@ import { GoogleGenAI } from "@google/genai";
 
 export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
+/**
+ * Cleans the Base URL to ensure compatibility with Google GenAI SDK.
+ * Handles cases where users copy OpenAI-style endpoints or include versions.
+ * 
+ * Target format for SDK: "https://api.provider.com" (SDK appends /v1beta/...)
+ * 
+ * Input Examples -> Output:
+ * - https://api.kuai.host/v1/chat/completions -> https://api.kuai.host
+ * - https://api.kuai.host/v1 -> https://api.kuai.host
+ * - https://api.kuai.host -> https://api.kuai.host
+ */
+const cleanBaseUrl = (url: string): string => {
+  if (!url || url.trim() === '') return '';
+  
+  let cleaned = url.trim();
+  const original = cleaned;
+  
+  // 1. Remove trailing slashes first
+  cleaned = cleaned.replace(/\/+$/, '');
+  
+  // 2. Remove specific OpenAI or Version suffixes
+  // The SDK (@google/genai) expects the ROOT host because it appends /v1beta/models/... internally.
+  // We must strip common paths that users might paste from OpenAI docs.
+  const suffixesToRemove = [
+    '/chat/completions', // OpenAI style
+    '/completions',
+    '/chat',
+    '/v1beta',           // Google SDK adds this automatically
+    '/v1'                // Common proxy version prefix
+  ];
+
+  // Iteratively remove suffixes to handle cases like /v1/chat/completions
+  // We loop to catch nested suffixes (e.g. removing /chat/completions might leave /v1)
+  let modified = true;
+  while (modified) {
+    modified = false;
+    for (const suffix of suffixesToRemove) {
+      if (cleaned.endsWith(suffix)) {
+        cleaned = cleaned.substring(0, cleaned.length - suffix.length);
+        cleaned = cleaned.replace(/\/+$/, ''); // Clean trailing slash again
+        modified = true; 
+      }
+    }
+  }
+
+  // Debug log to help users verify their proxy config
+  // This log ensures you can see exactly what URL is being passed to the SDK
+  if (original !== cleaned) {
+    console.debug(`[CharView AI] Cleaned Base URL for SDK compatibility:\n  Original: "${original}"\n  Cleaned:  "${cleaned}"`);
+  }
+
+  return cleaned;
+};
+
 // Lazy initialization to prevent app crash if API key is missing at startup
 const getAiClient = () => {
   // Use process.env.API_KEY exclusively as per guidelines.
-  // The vite.config.ts handles the injection from .env file (GOOGLE_API_KEY -> API_KEY).
+  // In vite.config.ts, we inject GOOGLE_API_KEY into process.env.API_KEY
   const apiKey = process.env.API_KEY;
+  const rawBaseUrl = process.env.GOOGLE_BASE_URL; // Injected by build config
+  const baseUrl = cleanBaseUrl(rawBaseUrl || '');
   
   // Debug log
   if (!apiKey) {
     console.warn("[CharView AI] API Key missing.");
+    throw new Error("API Key 未配置。请在项目根目录下创建 .env 文件并配置 GOOGLE_API_KEY。");
   } else {
-    console.log(`[CharView AI] Service initialized.`);
+    // Log the active configuration mode
+    const mode = baseUrl ? `Custom Proxy (${baseUrl})` : 'Official Google API (Default)';
+    console.log(`[CharView AI] Initialized Client: ${mode}`);
   }
 
-  if (!apiKey) {
-    throw new Error("API Key 未配置。请在项目根目录下创建 .env 文件并配置 GOOGLE_API_KEY。");
+  const options: any = { apiKey };
+  
+  // Only set baseUrl if user provided a valid proxy address.
+  // If empty, GoogleGenAI SDK defaults to https://generativelanguage.googleapis.com (Correct for Official)
+  if (baseUrl) {
+    options.baseUrl = baseUrl;
   }
-  return new GoogleGenAI({ apiKey });
+
+  return new GoogleGenAI(options);
 };
 
 /**
  * Returns a safe masked version of the current API key for debugging purposes.
- * e.g., "AIza...AbCd"
+ * e.g., "AIza...AbCd" or "sk-a...9f3d"
  */
 export const getMaskedApiKey = (): string => {
   try {
     const key = process.env.API_KEY;
     if (!key) return "未设置";
-    if (key.length < 10) return "格式无效";
+    if (key.length < 8) return "****";
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   } catch (e) {
     return "读取错误";
@@ -38,7 +102,7 @@ export const getMaskedApiKey = (): string => {
 
 /**
  * Generates a 3-view character sheet from an uploaded image.
- * Uses gemini-2.5-flash-image (Nano Banana).
+ * Uses gemini-2.5-flash-image (Nano Banana) or configured model.
  */
 export const generateCharacterSheet = async (
   base64Image: string, 
@@ -48,6 +112,8 @@ export const generateCharacterSheet = async (
 ): Promise<string> => {
   try {
     const ai = getAiClient();
+    // Use configured model ID or default to Gemini 2.5 Flash Image
+    const modelId = process.env.GOOGLE_MODEL_ID || 'gemini-2.5-flash-image';
     
     let poseInstruction = '';
     switch (poseType) {
@@ -87,8 +153,10 @@ export const generateCharacterSheet = async (
     const mimeType = matches ? matches[1] : 'image/jpeg';
     const data = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
 
+    console.log(`[CharView AI] Generating content...\n  Model: ${modelId}\n  Pose: ${poseType}`);
+
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: modelId,
       contents: {
         parts: [
           {

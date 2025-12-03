@@ -53,9 +53,9 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
               e.stopPropagation();
               onClear();
             }}
-            className="p-2 bg-white rounded-full shadow-md hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors"
+            className="p-3 bg-white rounded-full shadow-md hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
         <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
@@ -88,13 +88,13 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
         className="hidden" 
       />
       
-      <div className="flex flex-col items-center gap-4 text-slate-500">
-        <div className={`p-4 rounded-full bg-slate-100 ${isDragging ? 'bg-slate-200' : ''}`}>
-          <Upload className="w-8 h-8 text-slate-700" />
+      <div className="flex flex-col items-center gap-6 text-slate-500">
+        <div className={`p-6 rounded-full bg-slate-100 ${isDragging ? 'bg-slate-200' : ''}`}>
+          <Upload className="w-12 h-12 text-slate-700" />
         </div>
         <div className="text-center">
-          <p className="text-lg font-semibold text-slate-900">点击或拖拽上传图片</p>
-          <p className="text-sm mt-1">支持上传 JPG, PNG 格式的角色立绘</p>
+          <p className="text-xl font-bold text-slate-900">点击或拖拽上传图片</p>
+          <p className="text-base mt-2">支持上传 JPG, PNG 格式的角色立绘</p>
         </div>
       </div>
     </div>
