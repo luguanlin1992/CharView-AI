@@ -8,7 +8,8 @@ export default defineConfig(({ mode }) => {
   // Read configuration from environment
   // We prioritize process.env for Vercel/Node environments, fall back to loadedEnv for local .env
   const apiKey = process.env.GOOGLE_API_KEY || loadedEnv.GOOGLE_API_KEY || '';
-  const baseUrl = process.env.GOOGLE_BASE_URL || loadedEnv.GOOGLE_BASE_URL || '';
+  // Default to api.kuai.host as requested if no env var is provided
+  const baseUrl = process.env.GOOGLE_BASE_URL || loadedEnv.GOOGLE_BASE_URL || 'https://api.kuai.host';
   const modelId = process.env.GOOGLE_MODEL_ID || loadedEnv.GOOGLE_MODEL_ID || '';
 
   // Log configuration status (masked)
@@ -19,7 +20,7 @@ export default defineConfig(({ mode }) => {
   }
 
   if (baseUrl) {
-    console.log('\x1b[36m%s\x1b[0m', `ℹ️  Configuration: Custom Base URL detected: ${baseUrl}`);
+    console.log('\x1b[36m%s\x1b[0m', `ℹ️  Configuration: Base URL: ${baseUrl}`);
   }
 
   return {
