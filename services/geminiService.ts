@@ -1,92 +1,43 @@
-import { GoogleGenAI } from "@google/genai";
-
 export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
 /**
- * Cleans the Base URL to ensure compatibility with Google GenAI SDK.
- * 
- * WHY THIS IS NEEDED:
- * Many users copy "OpenAI-compatible" endpoints from third-party providers (e.g., api.kuai.host).
- * These often look like: "https://api.kuai.host/v1/chat/completions"
- * 
- * However, the Google GenAI SDK (@google/genai) automatically appends its own versioning paths
- * (e.g., "/v1beta/models/...").
- * 
- * If we pass a dirty URL, the request becomes:
- * "https://api.kuai.host/v1/chat/completions/v1beta/models/..." -> 404 Not Found.
- * 
- * This function strips specific suffixes to extract the valid ROOT host.
+ * Gets the API base URL and constructs the Gemini native endpoint.
+ * Defaults to https://apis.kuai.host if not provided.
  */
-const cleanBaseUrl = (url: string): string => {
-  if (!url || url.trim() === '') return '';
+const getApiBaseUrl = (): string => {
+  const rawBaseUrl = process.env.GOOGLE_BASE_URL || 'https://apis.kuai.host';
+  let cleaned = rawBaseUrl.trim();
   
-  let cleaned = url.trim();
-  
-  // 1. Remove trailing slashes first
+  // Remove trailing slashes
   cleaned = cleaned.replace(/\/+$/, '');
   
-  // 2. Remove specific suffixes iteratively to get to the root/base that SDK expects
-  // The SDK usually expects the root host (e.g. https://api.kuai.host) 
-  // OR the version root (https://api.kuai.host/v1beta) depending on strictness.
-  // Generally, stripping to root is safest as SDK appends /v1beta.
-  const suffixesToRemove = [
-    '/chat/completions', // OpenAI style
-    '/completions',
-    '/chat',
-    '/v1beta',           // Google SDK adds this automatically
-    '/v1'                // Common proxy version prefix
-  ];
-
-  let modified = true;
-  while (modified) {
-    modified = false;
-    for (const suffix of suffixesToRemove) {
-      if (cleaned.endsWith(suffix)) {
-        cleaned = cleaned.substring(0, cleaned.length - suffix.length);
-        cleaned = cleaned.replace(/\/+$/, ''); // Clean trailing slash again
-        modified = true; 
-      }
-    }
-  }
-
+  // Remove any existing paths
+  cleaned = cleaned.replace(/\/v1\/models\/.*$/, '');
+  cleaned = cleaned.replace(/\/v1\/chat\/completions\/?$/, '');
+  cleaned = cleaned.replace(/\/chat\/completions\/?$/, '');
+  cleaned = cleaned.replace(/\/v1\/?$/, '');
+  cleaned = cleaned.replace(/\/+$/, '');
+  
   return cleaned;
 };
 
-// Lazy initialization to prevent app crash if API key is missing at startup
-const getAiClient = () => {
-  // Use process.env.API_KEY exclusively as per guidelines.
-  // In vite.config.ts, we inject GOOGLE_API_KEY into process.env.API_KEY
-  const apiKey = process.env.API_KEY;
-  const rawBaseUrl = process.env.GOOGLE_BASE_URL; // Injected by build config
-  const baseUrl = cleanBaseUrl(rawBaseUrl || '');
-  
-  if (!apiKey) {
-    console.warn("[CharView AI] API Key missing.");
-    throw new Error("API Key 未配置。请在 .env (本地) 或 Vercel Settings 中配置 GOOGLE_API_KEY。");
-  }
-
-  const options: any = { apiKey };
-  
-  // Only set baseUrl if user provided a valid proxy address.
-  if (baseUrl) {
-    options.baseUrl = baseUrl;
-    console.log(`[CharView AI] Using Proxy: ${baseUrl}`);
-  } else {
-    console.log(`[CharView AI] Using Official Google API`);
-  }
-
-  return new GoogleGenAI(options);
+/**
+ * Gets the full API endpoint URL for Gemini generateContent.
+ */
+const getApiEndpoint = (modelId: string): string => {
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}/v1/models/${modelId}:generateContent`;
 };
 
 /**
  * Helper to get current config info for UI debugging
  */
 export const getApiConfigInfo = () => {
-  const rawBaseUrl = process.env.GOOGLE_BASE_URL;
-  const baseUrl = cleanBaseUrl(rawBaseUrl || '');
+  const baseUrl = getApiBaseUrl();
+  const isDefault = baseUrl.includes('apis.kuai.host');
   return {
-    isCustom: !!baseUrl,
-    source: baseUrl ? `Proxy: ${baseUrl}` : 'Official Google'
+    isCustom: !isDefault,
+    source: isDefault ? 'Kuai Host API' : `Custom: ${baseUrl}`
   };
 };
 
@@ -107,7 +58,7 @@ export const getMaskedApiKey = (): string => {
 
 /**
  * Generates a 3-view character sheet from an uploaded image.
- * Uses gemini-2.5-flash-image (Nano Banana) or configured model.
+ * Uses the OpenAI-compatible API endpoint (e.g., apis.kuai.host).
  */
 export const generateCharacterSheet = async (
   base64Image: string, 
@@ -116,9 +67,15 @@ export const generateCharacterSheet = async (
   backgroundColor: string = '#F0F0F0'
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
-    // Use configured model ID or default to Gemini 2.5 Flash Image
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("API Key 未配置。请在 .env (本地) 或 Vercel Settings 中配置 GOOGLE_API_KEY。");
+    }
+
+    // Use configured model ID or default to gemini-2.5-flash-image
     const modelId = process.env.GOOGLE_MODEL_ID || 'gemini-2.5-flash-image';
+    // Use Gemini native format endpoint: /v1/models/{model}:generateContent
+    const apiEndpoint = getApiEndpoint(modelId);
     
     let poseInstruction = '';
     switch (poseType) {
@@ -152,37 +109,114 @@ export const generateCharacterSheet = async (
       ? `${basePrompt}\nAdditional Instruction: ${customInstruction}`
       : basePrompt;
 
+    // Parse base64 image data
     const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
     const mimeType = matches ? matches[1] : 'image/jpeg';
-    const data = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
+    const imageData = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
 
-    console.log(`[CharView AI] Requesting Model: ${modelId}`);
+    console.log(`[CharView AI] Requesting Model: ${modelId} at ${apiEndpoint}`);
 
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: {
-        parts: [
-          { inlineData: { mimeType, data } },
-          { text: fullPrompt }
-        ]
+    // Prepare request body in Gemini native format (using contents)
+    // Reference: https://docs.kuai.host/353591150e0 and google-pic-ai project
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              inlineData: {
+                data: imageData,
+                mimeType: mimeType,
+              },
+            },
+            {
+              text: fullPrompt,
+            },
+          ],
+        },
+      ],
+    };
+
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
-      config: {
-        imageConfig: { aspectRatio: "16:9" }
-      }
+      body: JSON.stringify(requestBody)
     });
 
-    if (response.candidates && response.candidates[0].content.parts) {
-      for (const part of response.candidates[0].content.parts) {
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `API 请求失败: ${response.status} ${response.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+      } catch (e) {
+        errorMessage = errorText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const responseData = await response.json();
+    
+    // Handle Google Gemini response format
+    // Response format: { candidates: [{ content: { parts: [{ inlineData: { mimeType, data } }] } }] }
+    if (responseData.candidates && responseData.candidates[0]?.content?.parts) {
+      const parts = responseData.candidates[0].content.parts;
+      for (const part of parts) {
         if (part.inlineData && part.inlineData.data) {
-          return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          return `data:${mimeType};base64,${part.inlineData.data}`;
         }
       }
     }
 
-    throw new Error("生成失败：模型未返回图像，请重试。");
-  } catch (error) {
-    console.error("Gemini Generation Error:", error);
-    throw error;
+    // Fallback: Handle OpenAI-compatible response format
+    if (responseData.choices && responseData.choices[0]?.message?.content) {
+      const content = responseData.choices[0].message.content;
+      
+      // Check if content is an array (multimodal response)
+      if (Array.isArray(content)) {
+        for (const item of content) {
+          if (item.type === 'image_url' && item.image_url?.url) {
+            return item.image_url.url;
+          }
+        }
+      }
+      
+      // Check if content is a string (base64 image data)
+      if (typeof content === 'string') {
+        // If it's already a data URL, return it
+        if (content.startsWith('data:')) {
+          return content;
+        }
+        // Otherwise, assume it's base64 and wrap it
+        return `data:image/png;base64,${content}`;
+      }
+    }
+
+    // Fallback: check for image data in other possible locations
+    if (responseData.data && responseData.data[0]?.url) {
+      return responseData.data[0].url;
+    }
+
+    // If response contains base64 data directly
+    if (responseData.image || responseData.image_data) {
+      const imageData = responseData.image || responseData.image_data;
+      if (imageData.startsWith('data:')) {
+        return imageData;
+      }
+      return `data:image/png;base64,${imageData}`;
+    }
+
+    console.error('Unexpected response format:', responseData);
+    throw new Error("生成失败：模型未返回图像，请检查响应格式。");
+  } catch (error: any) {
+    console.error("API Generation Error:", error);
+    if (error.message) {
+      throw error;
+    }
+    throw new Error(`生成失败: ${error.toString()}`);
   }
 };
 
