@@ -8,9 +8,9 @@ export default defineConfig(({ mode }) => {
   // Read configuration from environment
   // We prioritize process.env for Vercel/Node environments, fall back to loadedEnv for local .env
   const apiKey = process.env.GOOGLE_API_KEY || loadedEnv.GOOGLE_API_KEY || '';
-  // Default to api.kuai.host as requested if no env var is provided
-  const baseUrl = process.env.GOOGLE_BASE_URL || loadedEnv.GOOGLE_BASE_URL || 'https://api.kuai.host';
-  const modelId = process.env.GOOGLE_MODEL_ID || loadedEnv.GOOGLE_MODEL_ID || '';
+  // Default to apis.kuai.host as requested if no env var is provided
+  const baseUrl = process.env.GOOGLE_BASE_URL || loadedEnv.GOOGLE_BASE_URL || 'https://apis.kuai.host';
+  const modelId = process.env.GOOGLE_MODEL_ID || loadedEnv.GOOGLE_MODEL_ID || 'gemini-2.5-flash-image';
 
   // Log configuration status (masked)
   if (apiKey) {
