@@ -359,7 +359,7 @@ const App: React.FC = () => {
       {/* FOOTER & DEBUG PANEL */}
       <footer className="bg-white border-t border-slate-200 mt-auto py-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm space-y-2">
-          <p>© {new Date().getFullYear()} CharView AI. Powered by Google Gemini 2.5.</p>
+          <p>© {new Date().getFullYear()} CharView AI. Powered by Gemini 2.5 Flash Image.</p>
           
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
              <div className="flex items-center gap-1" title="Build Time">
