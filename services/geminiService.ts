@@ -1,222 +1,128 @@
-export type PoseType = 'ORIGINAL' | 'A-POSE' | 'T-POSE';
 
-/**
- * Gets the API base URL and constructs the Gemini native endpoint.
- * Defaults to https://apis.kuai.host if not provided.
- */
-const getApiBaseUrl = (): string => {
-  const rawBaseUrl = process.env.GOOGLE_BASE_URL || 'https://apis.kuai.host';
-  let cleaned = rawBaseUrl.trim();
-  
-  // Remove trailing slashes
-  cleaned = cleaned.replace(/\/+$/, '');
-  
-  // Remove any existing paths
-  cleaned = cleaned.replace(/\/v1\/models\/.*$/, '');
-  cleaned = cleaned.replace(/\/v1\/chat\/completions\/?$/, '');
-  cleaned = cleaned.replace(/\/chat\/completions\/?$/, '');
-  cleaned = cleaned.replace(/\/v1\/?$/, '');
-  cleaned = cleaned.replace(/\/+$/, '');
-  
-  return cleaned;
+import { ViewMode, AspectRatioType, ModelType, ImageSizeType, PoseType } from "../types";
+
+// 处理 Base URL 拼接，确保符合 /v1beta/models 规范
+const formatEndpoint = (baseUrl: string, modelId: string): string => {
+  let cleanBase = baseUrl.trim().replace(/\/+$/, "");
+  // 如果用户填写的 URL 包含 /v1beta，则先移除，统一由后面拼接
+  cleanBase = cleanBase.replace(/\/v1beta$/, "");
+  return `${cleanBase}/v1beta/models/${modelId}:generateContent`;
 };
 
-/**
- * Gets the full API endpoint URL for Gemini generateContent.
- */
-const getApiEndpoint = (modelId: string): string => {
-  const baseUrl = getApiBaseUrl();
-  return `${baseUrl}/v1/models/${modelId}:generateContent`;
-};
-
-/**
- * Helper to get current config info for UI debugging
- */
-export const getApiConfigInfo = () => {
-  const baseUrl = getApiBaseUrl();
-  const isDefault = baseUrl.includes('apis.kuai.host');
-  return {
-    isCustom: !isDefault,
-    source: isDefault ? 'Kuai Host API' : `Custom: ${baseUrl}`
-  };
-};
-
-/**
- * Returns a safe masked version of the current API key for debugging purposes.
- * e.g., "AIza...AbCd" or "sk-a...9f3d"
- */
-export const getMaskedApiKey = (): string => {
-  try {
-    const key = process.env.API_KEY;
-    if (!key) return "未设置";
-    if (key.length < 8) return "****";
-    return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
-  } catch (e) {
-    return "读取错误";
-  }
-};
-
-/**
- * Generates a 3-view character sheet from an uploaded image.
- * Uses the OpenAI-compatible API endpoint (e.g., apis.kuai.host).
- */
+// 导出生成图像的核心函数
 export const generateCharacterSheet = async (
   base64Image: string, 
-  customInstruction: string = "",
-  poseType: PoseType = 'A-POSE',
-  backgroundColor: string = '#F0F0F0'
+  config: {
+    customInstruction: string;
+    poseType: PoseType;
+    backgroundColor: string;
+    viewMode: ViewMode;
+    subjectType: string;
+    aspectRatio: AspectRatioType;
+    imageSize: ImageSizeType;
+    removeProps: boolean;
+    modelId: ModelType;
+    baseUrl?: string;
+    apiKey: string;
+  }
 ): Promise<string> => {
-  try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("API Key 未配置。请在 .env (本地) 或 Vercel Settings 中配置 GOOGLE_API_KEY。");
-    }
+  const isProModel = config.modelId === 'gemini-3-pro-image-preview';
+  const isFourView = config.viewMode === '4-VIEW';
+  const baseUrl = config.baseUrl || 'https://api.kuai.host';
+  const apiKey = config.apiKey;
 
-    // Use configured model ID or default to gemini-2.5-flash-image
-    const modelId = process.env.GOOGLE_MODEL_ID || 'gemini-2.5-flash-image';
-    // Use Gemini native format endpoint: /v1/models/{model}:generateContent
-    const apiEndpoint = getApiEndpoint(modelId);
-    
-    let poseInstruction = '';
-    switch (poseType) {
-      case 'T-POSE':
-        poseInstruction = 'The character must be in a static "T-Pose" (arms straight out horizontally, legs straight).';
-        break;
-      case 'ORIGINAL':
-        poseInstruction = 'Keep the character in a similar pose to the input image for the main view, but ensure side and back views are aligned.';
-        break;
-      case 'A-POSE':
-      default:
-        poseInstruction = 'The character must be in a static "A-Pose" (arms angled slightly down, legs straight).';
-        break;
-    }
+  if (!apiKey) {
+    throw new Error("API Key 缺失，请在设置中进行配置。");
+  }
+  
+  const basePrompt = `
+# ROLE
+Expert Game Character Concept Artist & Technical Modeler.
 
-    // Construct a specialized prompt for 3-view generation
-    const basePrompt = `
-      You are an expert game character designer. 
-      Generate a professional character design sheet based on the uploaded character image.
-      
-      Requirements:
-      1. Create a "Three-View" (Tri-view) schematic: Front view, Side view, and Back view.
-      2. ${poseInstruction}
-      3. Arrange the three views horizontally on the canvas.
-      4. The character details (clothing, hair, accessories, colors) must match the input image accurately.
-      5. The background must be a solid color: ${backgroundColor}.
-      6. High quality, detailed, anime or semi-realistic style suitable for 3D modeling references.
+# OBJECTIVE
+Generate a high-fidelity ${isFourView ? '4-view' : '3-view'} orthographic character reference sheet. This image is for precise 3D modeling.
+
+# PERSPECTIVE & LAYOUT
+- Layout: A strictly horizontal sequence of ${isFourView ? '4' : '3'} views.
+- View Sequence: ${isFourView ? 'Front, Back, Left Side, Right Side' : 'Front, Side, Back'}.
+- Vertical Alignment: Head, torso, and feet MUST be perfectly aligned across all views.
+- Style: Industrial-grade clean lines, neutral character design, professional studio shading.
+
+# CHARACTER CONSISTENCY
+- Design: Exactly replicate the character design, colors, and silhouette from the provided image. 
+- Pose: ${config.poseType === 'ORIGINAL' ? 'Maintain the original pose' : `Standardize the character into a neutral ${config.poseType} for all views`}.
+- Background: Solid ${config.backgroundColor} background.
+
+${config.removeProps ? `
+# PROPS REMOVAL
+- Action: Completely remove any handheld weapons (swords, guns, staves), large shields, or floating accessories that obscure the body design.
+- Goal: Show the base costume and character anatomy as clearly as possible without external tools.
+` : ''}
+
+${config.customInstruction ? `ADDITIONAL GUIDANCE: ${config.customInstruction}` : ''}
     `;
 
-    const fullPrompt = customInstruction 
-      ? `${basePrompt}\nAdditional Instruction: ${customInstruction}`
-      : basePrompt;
+  const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
+  const mimeType = matches ? matches[1] : 'image/jpeg';
+  const data = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
 
-    // Parse base64 image data
-    const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
-    const mimeType = matches ? matches[1] : 'image/jpeg';
-    const imageData = matches ? matches[2] : base64Image.replace(/^data:.*,/, '');
+  // 拼接完整 Endpoint
+  const endpoint = formatEndpoint(baseUrl, config.modelId);
+  const urlWithKey = `${endpoint}?key=${apiKey}`;
 
-    console.log(`[CharView AI] Requesting Model: ${modelId} at ${apiEndpoint}`);
+  const payload = {
+    contents: [
+      {
+        parts: [
+          { inlineData: { mimeType, data } },
+          { text: basePrompt }
+        ]
+      }
+    ],
+    generationConfig: {
+      // 对于 Pro 模型，必须显式设置 responseModalities
+      ...(isProModel ? { responseModalities: ["image"] } : {}),
+      imageConfig: {
+        aspectRatio: config.aspectRatio,
+        ...(isProModel ? { imageSize: config.imageSize } : {})
+      }
+    }
+  };
 
-    // Prepare request body in Gemini native format (using contents)
-    // Reference: https://docs.kuai.host/353591150e0 and google-pic-ai project
-    const requestBody = {
-      contents: [
-        {
-          parts: [
-            {
-              inlineData: {
-                data: imageData,
-                mimeType: mimeType,
-              },
-            },
-            {
-              text: fullPrompt,
-            },
-          ],
-        },
-      ],
-    };
-
-    const response = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+  try {
+    // 增加 Authorization 和 x-goog-api-key 请求头以适配不同的中转服务商鉴权逻辑
+    const response = await fetch(urlWithKey, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "x-goog-api-key": apiKey
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `API 请求失败: ${response.status} ${response.statusText}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
-      } catch (e) {
-        errorMessage = errorText || errorMessage;
-      }
-      throw new Error(errorMessage);
+      const errText = await response.text();
+      // 对 Key 进行脱敏处理后打印调试信息
+      const maskedUrl = urlWithKey.replace(/key=([^&]+)/, "key=***");
+      console.error(`API 请求失败，节点: ${maskedUrl}`, errText);
+      throw new Error(`接口服务错误 (${response.status}): ${errText}`);
     }
 
-    const responseData = await response.json();
-    
-    // Handle Google Gemini response format
-    // Response format: { candidates: [{ content: { parts: [{ inlineData: { mimeType, data } }] } }] }
-    if (responseData.candidates && responseData.candidates[0]?.content?.parts) {
-      const parts = responseData.candidates[0].content.parts;
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
-          const mimeType = part.inlineData.mimeType || 'image/png';
-          return `data:${mimeType};base64,${part.inlineData.data}`;
-        }
+    const json = await response.json();
+    const parts = json.candidates?.[0]?.content?.parts;
+    if (parts) {
+      const imagePart = parts.find((p: any) => p.inlineData);
+      if (imagePart) {
+        return `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`;
       }
     }
-
-    // Fallback: Handle OpenAI-compatible response format
-    if (responseData.choices && responseData.choices[0]?.message?.content) {
-      const content = responseData.choices[0].message.content;
-      
-      // Check if content is an array (multimodal response)
-      if (Array.isArray(content)) {
-        for (const item of content) {
-          if (item.type === 'image_url' && item.image_url?.url) {
-            return item.image_url.url;
-          }
-        }
-      }
-      
-      // Check if content is a string (base64 image data)
-      if (typeof content === 'string') {
-        // If it's already a data URL, return it
-        if (content.startsWith('data:')) {
-          return content;
-        }
-        // Otherwise, assume it's base64 and wrap it
-        return `data:image/png;base64,${content}`;
-      }
+    throw new Error("模型响应成功 but 未返回有效图像，请检查 Key 的权限或模型配额。");
+  } catch (e: any) {
+    if (e.name === 'TypeError' && e.message === 'Failed to fetch') {
+      throw new Error("无法连接到接口节点。请检查 Base URL 是否正确以及网络是否通畅。");
     }
-
-    // Fallback: check for image data in other possible locations
-    if (responseData.data && responseData.data[0]?.url) {
-      return responseData.data[0].url;
-    }
-
-    // If response contains base64 data directly
-    if (responseData.image || responseData.image_data) {
-      const imageData = responseData.image || responseData.image_data;
-      if (imageData.startsWith('data:')) {
-        return imageData;
-      }
-      return `data:image/png;base64,${imageData}`;
-    }
-
-    console.error('Unexpected response format:', responseData);
-    throw new Error("生成失败：模型未返回图像，请检查响应格式。");
-  } catch (error: any) {
-    console.error("API Generation Error:", error);
-    if (error.message) {
-      throw error;
-    }
-    throw new Error(`生成失败: ${error.toString()}`);
+    throw e;
   }
 };
 

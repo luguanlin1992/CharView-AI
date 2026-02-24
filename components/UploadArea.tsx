@@ -1,5 +1,6 @@
+
 import React, { useRef, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface UploadAreaProps {
   onImageSelected: (file: File) => void;
@@ -29,37 +30,21 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
     }
   };
 
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onImageSelected(e.target.files[0]);
-    }
-  };
-
   if (selectedImage) {
     return (
-      <div className="relative group w-full h-full min-h-[300px] bg-slate-50 rounded-2xl overflow-hidden border-2 border-slate-200">
+      <div className="relative group w-full aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-slate-200">
         <img 
           src={selectedImage} 
           alt="Original Character" 
           className="w-full h-full object-contain p-4"
         />
-        <div className="absolute top-2 right-2">
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
           <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
-            className="p-3 bg-white rounded-full shadow-md hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors"
+            onClick={onClear}
+            className="p-4 bg-white text-red-600 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 font-bold text-sm"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" /> 移除重新上传
           </button>
-        </div>
-        <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
-          原图
         </div>
       </div>
     );
@@ -67,34 +52,28 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
 
   return (
     <div
-      onClick={handleClick}
+      onClick={() => fileInputRef.current?.click()}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
-        w-full min-h-[300px] h-full flex flex-col items-center justify-center 
-        rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200
+        w-full aspect-[4/3] flex flex-col items-center justify-center 
+        rounded-3xl border-2 border-dashed transition-all duration-300
         ${isDragging 
-          ? 'border-slate-900 bg-slate-50 scale-[0.99]' 
-          : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 bg-white'
+          ? 'border-indigo-500 bg-indigo-50/50 scale-[0.98]' 
+          : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 bg-slate-50'
         }
       `}
     >
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleChange} 
-        accept="image/*" 
-        className="hidden" 
-      />
+      <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && onImageSelected(e.target.files[0])} accept="image/*" className="hidden" />
       
-      <div className="flex flex-col items-center gap-6 text-slate-500">
-        <div className={`p-6 rounded-full bg-slate-100 ${isDragging ? 'bg-slate-200' : ''}`}>
-          <Upload className="w-12 h-12 text-slate-700" />
+      <div className="flex flex-col items-center gap-4 text-slate-400 group">
+        <div className={`p-6 rounded-3xl bg-white shadow-sm border border-slate-100 transition-transform group-hover:-translate-y-1`}>
+          <ImageIcon className="w-10 h-10 text-indigo-500" />
         </div>
         <div className="text-center">
-          <p className="text-xl font-bold text-slate-900">点击或拖拽上传</p>
-          <p className="text-base mt-2">支持 JPG, PNG 立绘</p>
+          <p className="text-sm font-bold text-slate-900">点击或将立绘拖入此处</p>
+          <p className="text-[11px] font-medium mt-1">建议上传 PNG 透明背景立绘效果最佳</p>
         </div>
       </div>
     </div>

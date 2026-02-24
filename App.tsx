@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { UploadArea } from './components/UploadArea';
 import { Button } from './components/Button';
-import { generateCharacterSheet, fileToBase64, PoseType, getMaskedApiKey, getApiConfigInfo } from './services/geminiService';
-import { AppState } from './types';
-import { Download, Sparkles, Wand2, ArrowRight, PaintBucket, Users, AlertTriangle, Clock, Settings, RefreshCw, Terminal, FileCode, MousePointerClick, Server } from 'lucide-react';
+import { generateCharacterSheet, fileToBase64 } from './services/geminiService';
+import { AppState, ViewMode, AspectRatioType, ModelType, ImageSizeType, PoseType } from './types';
+import { 
+  Download, Sparkles, Wand2, AlertTriangle, 
+  Layers, MessageSquare, Scan, Zap, Maximize, ExternalLink,
+  Smartphone, Monitor, Square, Layout, Settings, Key, X, CheckCircle2, Globe, User,
+  Columns3, Columns4, Lock, Trash2, Sword, ShieldOff
+} from 'lucide-react';
+
+const aspectRatios: { label: string; value: AspectRatioType; icon: any }[] = [
+  { label: '16:9', value: '16:9', icon: Monitor },
+  { label: '4:3', value: '4:3', icon: Layout },
+  { label: '1:1', value: '1:1', icon: Square },
+  { label: '3:4', value: '3:4', icon: Smartphone },
+  { label: '9:16', value: '9:16', icon: Smartphone },
+];
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -13,368 +27,393 @@ const App: React.FC = () => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   
-  // New state for pose and background
-  const [poseType, setPoseType] = useState<PoseType>('A-POSE');
-  const [backgroundColor, setBackgroundColor] = useState<string>('#F0F0F0');
+  // Settings & Connection
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [customBaseUrl, setCustomBaseUrl] = useState(() => localStorage.getItem('charview_base_url') || 'https://api.kuai.host');
+  const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem('charview_api_key') || '');
 
-  const handleImageSelected = async (file: File) => {
-    try {
-      const base64 = await fileToBase64(file);
-      setSelectedImage(base64);
-      setGeneratedImage(null);
-      setError(null);
-      setAppState(AppState.IDLE);
-    } catch (e) {
-      console.error(e);
-      setError("图片处理失败。");
-    }
-  };
+  // Generation Parameters
+  const [viewMode, setViewMode] = useState<ViewMode>('3-VIEW');
+  const [poseType, setPoseType] = useState<PoseType>('T-POSE'); 
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('16:9');
+  const [modelId, setModelId] = useState<ModelType>('gemini-2.5-flash-image');
+  const [imageSize, setImageSize] = useState<ImageSizeType>('1K');
+  const [removeProps, setRemoveProps] = useState<boolean>(false);
 
-  const handleClear = () => {
-    setSelectedImage(null);
-    setGeneratedImage(null);
-    setAppState(AppState.IDLE);
-    setError(null);
-  };
+  useEffect(() => {
+    localStorage.setItem('charview_base_url', customBaseUrl);
+    localStorage.setItem('charview_api_key', customApiKey);
+  }, [customBaseUrl, customApiKey]);
 
   const handleGenerate = async () => {
     if (!selectedImage) return;
+    if (!customApiKey) {
+      setError("请先在设置中配置 API Key");
+      setIsSettingsOpen(true);
+      return;
+    }
 
     setAppState(AppState.GENERATING);
     setError(null);
 
     try {
-      const resultImage = await generateCharacterSheet(
-        selectedImage, 
-        customPrompt,
+      const resultImage = await generateCharacterSheet(selectedImage, {
+        customInstruction: customPrompt,
         poseType,
-        backgroundColor
-      );
+        backgroundColor: 'Neutral Gray',
+        viewMode,
+        subjectType: 'HUMANOID',
+        aspectRatio,
+        imageSize,
+        removeProps,
+        modelId,
+        baseUrl: customBaseUrl || 'https://api.kuai.host',
+        apiKey: customApiKey
+      });
       setGeneratedImage(resultImage);
       setAppState(AppState.SUCCESS);
     } catch (err: any) {
-      console.error(err);
-      let errorMessage = err.message || "生成三视图失败，请重试。";
-      if (typeof err === 'object' && err.toString().includes('[object Object]')) {
-         try { errorMessage = JSON.stringify(err); } catch(e) {}
-      }
-      setError(errorMessage);
+      console.error("Generation Error:", err);
+      setError(err.message || "生成过程发生未知错误。");
       setAppState(AppState.ERROR);
     }
   };
 
-  const handleDownload = () => {
-    if (generatedImage) {
-      const link = document.createElement('a');
-      link.href = generatedImage;
-      link.download = 'character-sheet.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
-  const bgColors = [
-    { name: '浅灰', value: '#F0F0F0' },
-    { name: '纯白', value: '#FFFFFF' },
-    { name: '深灰', value: '#333333' },
-    { name: '绿幕', value: '#00FF00' },
-  ];
-
-  const isApiKeyError = /api[ _]key|google_api_key/i.test(error || '');
-  const isQuotaError = /429|quota|resource_exhausted|exceeded|limit/i.test(error || '');
-  
-  // Get debug info
-  const apiInfo = getApiConfigInfo();
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
       <Header />
-
-      <main className="flex-grow flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 gap-8">
-        
-        {/* Intro Section */}
-        <section className="text-center py-8 max-w-3xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
-            将创意转化为 <span className="text-indigo-600">专业三视图</span>
-          </h1>
-          <p className="text-lg text-slate-600">
-            上传角色立绘，通过AI即刻生成包含正、侧、背视角的专业参考图，支持A-pose和T-pose，助力游戏角色建模与设计。
-          </p>
-        </section>
-
-        {/* Main Workspace */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      
+      <main className="flex-grow max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
           
-          {/* Left Column: Input */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-white text-xs">1</span>
-                上传角色
-              </h2>
-              <div className="aspect-[4/3] w-full">
-                <UploadArea 
-                  onImageSelected={handleImageSelected} 
-                  selectedImage={selectedImage}
-                  onClear={handleClear}
-                />
+          <aside className="space-y-6 lg:sticky lg:top-24">
+            {/* Input Asset Section */}
+            <div className="bg-white p-6 rounded-4xl border border-slate-200/60 shadow-sm">
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h2 className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                  <Scan className="w-4 h-4 text-indigo-500" /> 原画素材
+                </h2>
               </div>
+              <UploadArea 
+                onImageSelected={async (f) => { setSelectedImage(await fileToBase64(f)); setGeneratedImage(null); }} 
+                selectedImage={selectedImage} 
+                onClear={() => setSelectedImage(null)} 
+              />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-white text-xs">2</span>
-                配置参数
-              </h2>
+            {/* Config Section */}
+            <div className="bg-white p-6 rounded-4xl border border-slate-200/60 shadow-sm space-y-6">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                  <Layers className="w-4 h-4 text-indigo-500" /> 生成参数
+                </h2>
+                <button 
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-indigo-600"
+                  title="连接设置"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
 
               <div className="space-y-6">
-                {/* Pose Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-slate-600" />
-                    姿势选择
+                {/* View Mode Selection */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <Layout className="w-3 h-3" /> 视图布局
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => setViewMode('3-VIEW')} 
+                      className={`flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold rounded-xl border-2 transition-all ${viewMode === '3-VIEW' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-50 text-slate-400 bg-slate-50/50 hover:border-slate-200'}`}
+                    >
+                      <Columns3 className="w-3.5 h-3.5" /> 三视图
+                    </button>
+                    <button 
+                      onClick={() => setViewMode('4-VIEW')} 
+                      className={`flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold rounded-xl border-2 transition-all ${viewMode === '4-VIEW' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-50 text-slate-400 bg-slate-50/50 hover:border-slate-200'}`}
+                    >
+                      <Columns4 className="w-3.5 h-3.5" /> 四视图
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pose Type Selection */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <User className="w-3 h-3" /> 姿势类型
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => setPoseType('ORIGINAL')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'ORIGINAL' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                    {(['T-POSE', 'A-POSE', 'ORIGINAL'] as PoseType[]).map((type) => (
+                      <button 
+                        key={type}
+                        onClick={() => setPoseType(type)} 
+                        className={`flex items-center justify-center py-2.5 text-[10px] font-bold rounded-xl border-2 transition-all ${poseType === type ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-50 text-slate-400 bg-slate-50/50 hover:border-slate-200'}`}
+                      >
+                        {type === 'ORIGINAL' ? '原画动作' : type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Props Removal Toggle */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <Sword className="w-3 h-3" /> 道具控制
+                  </label>
+                  <button 
+                    onClick={() => setRemoveProps(!removeProps)}
+                    className={`group w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all duration-300 active:scale-[0.97] ${
+                      removeProps 
+                        ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100' 
+                        : 'border-slate-50 bg-slate-50/50 text-slate-400 hover:border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldOff className={`w-3.5 h-3.5 transition-colors ${removeProps ? 'text-indigo-600' : 'text-slate-300'}`} />
+                      <span className="text-[10px] font-bold">移除武器与手持道具</span>
+                    </div>
+                    <div className={`w-9 h-5 rounded-full relative transition-colors duration-300 ${removeProps ? 'bg-indigo-600' : 'bg-slate-200 group-hover:bg-slate-300'}`}>
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-300 ease-out ${removeProps ? 'translate-x-5' : 'translate-x-1'}`} />
+                    </div>
+                  </button>
+                </div>
+
+                {/* AI Model Selection */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">渲染模型</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button 
+                      onClick={() => setModelId('gemini-2.5-flash-image')} 
+                      className={`flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all ${modelId === 'gemini-2.5-flash-image' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
                     >
-                      原动作保持
+                      <div className="text-left">
+                        <span className={`block text-[11px] font-bold ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-700' : 'text-slate-700'}`}>Gemini 2.5 Flash</span>
+                        <span className="text-[9px] text-slate-400 font-medium italic">标准解析度</span>
+                      </div>
+                      <Zap className={`w-4 h-4 ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
                     </button>
-                    <button
-                      onClick={() => setPoseType('A-POSE')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'A-POSE' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                    <button 
+                      onClick={() => setModelId('gemini-3-pro-image-preview')} 
+                      className={`flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all ${modelId === 'gemini-3-pro-image-preview' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
                     >
-                      A-pose 姿势
-                    </button>
-                    <button
-                      onClick={() => setPoseType('T-POSE')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        poseType === 'T-POSE' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      T-pose 姿势
+                      <div className="text-left">
+                        <span className={`block text-[11px] font-bold ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-700' : 'text-slate-700'}`}>Gemini 3 Pro</span>
+                        <span className="text-[9px] text-slate-400 font-medium italic">超高解析度 (1K-4K)</span>
+                      </div>
+                      <Sparkles className={`w-4 h-4 ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
                     </button>
                   </div>
                 </div>
 
-                {/* Background Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <PaintBucket className="w-5 h-5 text-slate-600" />
-                    背景颜色
-                  </label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {bgColors.map((color) => (
-                      <button
-                        key={color.value}
-                        onClick={() => setBackgroundColor(color.value)}
-                        className={`w-10 h-10 rounded-full border-2 transition-all ${
-                          backgroundColor === color.value ? 'border-indigo-600 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                        style={{ backgroundColor: color.value }}
-                        title={color.name}
-                        aria-label={`Select ${color.name}`}
-                      />
-                    ))}
-                    <div className="relative group">
-                       <input 
-                        type="color" 
-                        value={backgroundColor}
-                        onChange={(e) => setBackgroundColor(e.target.value)}
-                        className="w-10 h-10 p-0.5 rounded-full border-2 border-slate-200 overflow-hidden cursor-pointer"
-                       />
-                       <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/75 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                         自定义
-                       </div>
+                {/* Image Size Selection (Only for Pro) */}
+                {modelId === 'gemini-3-pro-image-preview' && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">输出品质</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['1K', '2K', '4K'] as ImageSizeType[]).map((size) => (
+                        <button 
+                          key={size}
+                          onClick={() => setImageSize(size)}
+                          className={`py-2 text-[10px] font-bold rounded-xl border-2 transition-all ${imageSize === size ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50' : 'border-slate-50 text-slate-400 hover:border-slate-200'}`}
+                        >
+                          {size}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                )}
+
+                {/* Aspect Ratio Selector */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">出图比例</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {aspectRatios.map((ratio) => {
+                      const Icon = ratio.icon;
+                      return (
+                        <button 
+                          key={ratio.value} 
+                          onClick={() => setAspectRatio(ratio.value)}
+                          className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border-2 transition-all ${aspectRatio === ratio.value ? 'border-indigo-600 bg-indigo-50/50 text-indigo-600' : 'border-slate-50 text-slate-400 hover:border-slate-200'}`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="text-[9px] font-bold">{ratio.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Custom Instructions */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    额外指令 (可选)
+                <div className="space-y-3">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <MessageSquare className="w-3 h-3" /> 细节修正
                   </label>
-                  <textarea
+                  <textarea 
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="例如：赛博朋克风格，添加红色围巾..."
-                    className="w-full h-24 p-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all resize-none text-sm"
+                    placeholder="可选细节补充..."
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs min-h-[80px] outline-none focus:ring-2 focus:ring-indigo-100 transition-all resize-none"
                   />
                 </div>
+              </div>
 
+              <div className="pt-2">
                 <Button 
                   onClick={handleGenerate} 
-                  isLoading={appState === AppState.GENERATING}
-                  disabled={!selectedImage}
-                  className="w-full"
+                  isLoading={appState === AppState.GENERATING} 
+                  disabled={!selectedImage} 
+                  className="w-full py-6 rounded-3xl text-sm font-bold shadow-xl shadow-indigo-200/50 bg-indigo-600 hover:bg-indigo-700"
                 >
-                  {appState === AppState.GENERATING ? '正在生成三视图...' : '生成三视图'}
-                  {!appState.startsWith('GEN') && <Wand2 className="w-5 h-5 ml-2" />}
+                  {appState === AppState.GENERATING ? '正在渲染...' : '生成视图'}
+                  <Wand2 className="w-4 h-4 ml-2" />
                 </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Output */}
-          <div className="space-y-6">
-             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-full min-h-[600px] flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white text-xs">3</span>
-                  生成结果
-                </h2>
-                {generatedImage && (
-                  <Button variant="secondary" onClick={handleDownload} className="py-2 px-4 text-sm">
-                    <Download className="w-5 h-5 mr-2" />
-                    下载图片
-                  </Button>
+                {!customApiKey && (
+                  <p className="text-[9px] text-amber-600 text-center mt-3 font-bold">
+                    请先点击右上角设置图标配置接口 API Key
+                  </p>
                 )}
               </div>
-              
-              <div 
-                className="flex-grow flex items-center justify-center rounded-xl border border-slate-100 overflow-hidden relative"
-                style={{ backgroundColor: generatedImage ? 'transparent' : '#f8fafc' }}
-              >
+            </div>
+          </aside>
+
+          {/* Canvas Section */}
+          <section className="space-y-6">
+            <div className="bg-white rounded-[3rem] border border-slate-200/60 shadow-sm p-3 flex flex-col h-full overflow-hidden min-h-[700px]">
+              <div className="flex items-center justify-between p-4 px-8 border-b border-slate-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">渲染工作区</h2>
+                </div>
+                {generatedImage && (
+                  <button 
+                    onClick={() => { const l = document.createElement('a'); l.href = generatedImage; l.download = `turnaround_${Date.now()}.png`; l.click(); }} 
+                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all text-xs font-bold shadow-lg"
+                  >
+                    <Download className="w-4 h-4" /> 导出渲染图
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-grow flex items-center justify-center bg-[#fafbfc] relative overflow-hidden rounded-[2.5rem] mt-3 border border-slate-50">
                 {generatedImage ? (
-                  <img 
-                    src={generatedImage} 
-                    alt="Generated Character Sheet" 
-                    className="w-full h-auto max-h-full object-contain"
-                  />
+                  <div className="relative w-full h-full flex items-center justify-center p-8">
+                    <img src={generatedImage} alt="Result" className="max-w-full max-h-full object-contain drop-shadow-2xl animate-in zoom-in-95 duration-700" />
+                  </div>
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-8">
+                  <div className="text-center p-12">
                     {appState === AppState.GENERATING ? (
-                      <div className="flex flex-col items-center animate-pulse">
-                        <Sparkles className="w-16 h-16 text-indigo-400 mb-6" />
-                        <p className="text-xl font-medium text-slate-600">AI 正在绘制三视图...</p>
-                        <p className="text-base mt-2">这可能需要几秒钟</p>
+                      <div className="flex flex-col items-center">
+                        <div className="w-72 h-96 border-2 border-dashed border-indigo-200 rounded-[3rem] relative overflow-hidden bg-white flex items-center justify-center shadow-inner">
+                           <div className="scan-line animate-scan" />
+                           {selectedImage && <img src={selectedImage} className="w-full h-full object-contain opacity-10 grayscale blur-sm" alt="processing" />}
+                        </div>
+                        <div className="mt-10 space-y-2">
+                          <p className="text-indigo-600 font-black text-xl tracking-tight">AI 模型运算中</p>
+                          <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Processing Sheets</p>
+                        </div>
                       </div>
                     ) : appState === AppState.ERROR ? (
-                      <div className="flex flex-col items-center max-w-md mx-auto p-6 bg-red-50 rounded-xl border border-red-100 shadow-sm animate-in fade-in zoom-in-95 duration-300">
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isQuotaError ? 'bg-amber-100' : 'bg-red-100'}`}>
-                          {isQuotaError ? <Clock className="w-8 h-8 text-amber-600" /> : <AlertTriangle className="w-8 h-8 text-red-600" />}
+                      <div className="max-w-md mx-auto p-12 bg-red-50/50 rounded-[3rem] border border-red-100 text-center animate-in fade-in">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                          <AlertTriangle className="w-8 h-8 text-red-500" />
                         </div>
-                        
-                        <h3 className={`text-xl font-bold mb-2 ${isQuotaError ? 'text-amber-900' : 'text-red-900'}`}>
-                          {isQuotaError ? 'API 配额不足 (429)' : '生成失败'}
-                        </h3>
-                        
-                        <div className="max-h-32 overflow-y-auto w-full mb-4 text-center">
-                          <p className={`text-sm break-words ${isQuotaError ? 'text-amber-800' : 'text-red-700'}`}>
-                             {error?.replace(/\{"error":.*message":"/, '').replace(/"\}/, '').substring(0, 150) + (error && error.length > 150 ? '...' : '')}
-                          </p>
-                        </div>
-                        
-                        {/* LOCAL DEV ERROR */}
-                        {isApiKeyError && (
-                          <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-red-200 text-left shadow-sm">
-                            <div className="flex items-center gap-2 mb-2 border-b border-red-100 pb-2">
-                                <FileCode className="w-5 h-5 text-red-600" />
-                                <strong className="text-red-800 text-sm">本地配置指南</strong>
-                            </div>
-                            <ol className="list-decimal list-inside space-y-2 mt-2 text-sm">
-                              <li>找到 <code className="bg-slate-100 px-1 rounded">.env.example</code>，重命名为 <code className="bg-red-50 px-1 py-0.5 rounded text-red-900 font-bold">.env</code></li>
-                              <li>在文件中填入 <code className="bg-slate-100 p-1 rounded">GOOGLE_API_KEY</code></li>
-                              <li>重启开发服务器。</li>
-                            </ol>
-                          </div>
-                        )}
-
-                        {/* QUOTA ERROR */}
-                        {isQuotaError && (
-                          <div className="w-full text-xs text-slate-700 bg-white p-4 rounded-lg border border-amber-200 text-left shadow-sm">
-                            <div className="flex items-center gap-2 mb-2 border-b border-amber-100 pb-2">
-                                <RefreshCw className="w-5 h-5 text-amber-600" />
-                                <strong className="text-amber-800 text-sm">解决方案</strong>
-                            </div>
-                            <ul className="list-disc list-inside space-y-1.5 text-slate-600 text-sm">
-                              <li><strong>推荐：</strong> 稍等 1-2 分钟重试。</li>
-                              <li><strong>检查：</strong> 您的 API 余额或配额。</li>
-                            </ul>
-                            <div className="mt-4 text-center">
-                                <Button variant="outline" onClick={handleGenerate} className="py-1.5 px-4 h-auto text-xs border-amber-300 text-amber-800 hover:bg-amber-50">重试生成</Button>
-                            </div>
-                          </div>
-                        )}
+                        <h3 className="text-lg font-bold text-red-900 mb-2">生成任务失败</h3>
+                        <p className="text-xs text-red-700/80 leading-relaxed mb-8">{error}</p>
+                        <Button variant="outline" onClick={() => setAppState(AppState.IDLE)} className="w-full border-red-200 text-red-600 hover:bg-red-50">重置任务</Button>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center max-w-sm mx-auto text-center px-4">
-                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 border-2 border-slate-100 shadow-inner">
-                           <ArrowRight className="w-10 h-10 text-slate-300" />
+                      <div className="flex flex-col items-center gap-6 opacity-30 select-none grayscale">
+                        <div className="w-20 h-20 rounded-full border-4 border-slate-200 flex items-center justify-center">
+                          <Maximize className="w-8 h-8 text-slate-300" />
                         </div>
-                        <h3 className="text-xl font-semibold text-slate-700 mb-2">准备生成</h3>
-                        <p className="text-slate-500 mb-8">三视图生成结果将显示在这里</p>
-                        
-                        <div className="w-full bg-white rounded-xl border border-slate-200 p-5 shadow-sm text-left">
-                          <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
-                            <MousePointerClick className="w-5 h-5 text-indigo-500" />
-                            <h4 className="font-semibold text-slate-800">操作指南</h4>
-                          </div>
-                          <ul className="space-y-4">
-                            <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">1</span>
-                              <span><strong className="font-medium text-slate-900">上传立绘</strong>：左侧上传角色单人立绘。</span>
-                            </li>
-                            <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">2</span>
-                              <span><strong className="font-medium text-slate-900">AI 生成</strong>：配置参数后点击生成。</span>
-                            </li>
-                             <li className="flex items-start gap-3 text-sm text-slate-600">
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 font-medium text-slate-700 text-xs">3</span>
-                              <span><strong className="font-medium text-slate-900">下载</strong>：点击右上角按钮保存。</span>
-                            </li>
-                          </ul>
+                        <div className="text-center">
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-sm">等待素材输入</p>
                         </div>
                       </div>
                     )}
                   </div>
                 )}
               </div>
-              
-              {generatedImage && (
-                <div className="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-100 animate-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-6 h-6 text-indigo-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-semibold text-indigo-900">AI 完成绘制</h4>
-                      <p className="text-sm text-indigo-700 mt-1">三视图已生成。可尝试修改指令或背景重新生成。</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-             </div>
-          </div>
-
+            </div>
+          </section>
         </div>
       </main>
 
-      {/* FOOTER & DEBUG PANEL */}
-      <footer className="bg-white border-t border-slate-200 mt-auto py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm space-y-2">
-          <p>© {new Date().getFullYear()} CharView AI. Powered by Gemini 2.5 Flash Image.</p>
-          
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-300 pt-4 border-t border-slate-100 w-fit mx-auto mt-4 px-6">
-             <div className="flex items-center gap-1" title="Build Time">
-                <Terminal className="w-3 h-3" />
-                <span>Build: {typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'Local'}</span>
-             </div>
-             <div className="flex items-center gap-1" title="API Key Mask">
-                <span>Key: {getMaskedApiKey()}</span>
-             </div>
-             <div className="flex items-center gap-1" title="API Source">
-                <Server className="w-3 h-3" />
-                <span>Source: <span className={apiInfo.isCustom ? "text-indigo-400 font-medium" : ""}>{apiInfo.source}</span></span>
-             </div>
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600 rounded-xl">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">接口连接配置</h3>
+              </div>
+              <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-8">
+              {/* Endpoint Input */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Globe className="w-3 h-3" /> 自定义端点 (Base URL)
+                </label>
+                <input 
+                  type="text" 
+                  value={customBaseUrl}
+                  onChange={(e) => setCustomBaseUrl(e.target.value)}
+                  placeholder="https://api.kuai.host"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+                <p className="text-[9px] text-slate-400 italic">默认使用中转服务 https://api.kuai.host。</p>
+              </div>
+
+              {/* API Key Input */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Key className="w-3 h-3" /> API Key
+                </label>
+                <div className="relative">
+                  <input 
+                    type="password" 
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="请输入您的 API Key"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-5 py-4 text-xs focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  />
+                  <Lock className="w-4 h-4 text-slate-300 absolute left-5 top-1/2 -translate-y-1/2" />
+                </div>
+                <p className="text-[9px] text-slate-400">该 Key 仅保存在浏览器本地，将用于鉴权请求。</p>
+              </div>
+
+              <div className="pt-2">
+                <a 
+                  href="https://ai.google.dev/gemini-api/docs/billing" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:bg-white transition-colors"
+                >
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] font-bold text-slate-700">Gemini 3 Pro 配额说明</p>
+                    <p className="text-[9px] text-slate-400">若使用 Pro 模型，请确保 Key 具备相应模型权限</p>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                </a>
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50">
+              <Button onClick={() => setIsSettingsOpen(false)} className="w-full py-4 rounded-2xl shadow-none">保存连接配置</Button>
+            </div>
           </div>
         </div>
+      )}
+
+      <footer className="bg-white border-t border-slate-100 py-12 text-center mt-auto">
+        <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.4em]">CharView AI • Professional Interface</p>
       </footer>
     </div>
   );

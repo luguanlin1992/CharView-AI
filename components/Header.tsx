@@ -1,21 +1,32 @@
+
 import React from 'react';
-import { BoxSelect } from 'lucide-react';
+import { BoxSelect, Circle } from 'lucide-react';
 
 export const Header: React.FC = () => {
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3 text-slate-900">
-          <div className="bg-slate-900 p-2 rounded-lg">
-            <BoxSelect className="w-8 h-8 text-white" />
+    <header className="sticky top-0 z-50 glass-card border-b border-slate-200/60 h-16">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
+            <BoxSelect className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-bold tracking-tight">CharView AI</span>
+          <div>
+            <span className="text-lg font-extrabold tracking-tight text-slate-900 block leading-none">CharView AI</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 block">Character Design Studio</span>
+          </div>
         </div>
-        <nav className="hidden md:flex gap-6 text-sm font-medium text-slate-600">
-          <a href="#" className="hover:text-slate-900 transition-colors">图库</a>
-          <a href="#" className="hover:text-slate-900 transition-colors">文档</a>
-          <a href="#" className="hover:text-slate-900 transition-colors">定价</a>
-        </nav>
+        
+        <div className="flex items-center gap-6">
+          <div className="hidden sm:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200/50">
+            <Circle className="w-2 h-2 fill-emerald-500 text-emerald-500" />
+            <span className="text-[10px] font-bold text-slate-600 uppercase">Engine Ready</span>
+          </div>
+          <nav className="hidden md:flex gap-8 text-xs font-bold uppercase tracking-wider text-slate-500">
+            <a href="#" className="hover:text-indigo-600 transition-colors">Workspace</a>
+            <a href="#" className="hover:text-indigo-600 transition-colors">Assets</a>
+            <a href="#" className="hover:text-indigo-600 transition-colors">Help</a>
+          </nav>
+        </div>
       </div>
     </header>
   );
