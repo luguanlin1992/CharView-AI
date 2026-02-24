@@ -32,7 +32,7 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
 
   if (selectedImage) {
     return (
-      <div className="relative group w-full aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-slate-200">
+      <div className="relative group w-full aspect-[16/9] bg-slate-100 rounded-3xl overflow-hidden border border-slate-200">
         <img 
           src={selectedImage} 
           alt="Original Character" 
@@ -57,7 +57,7 @@ export const UploadArea: React.FC<UploadAreaProps> = ({ onImageSelected, selecte
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
-        w-full aspect-[4/3] flex flex-col items-center justify-center 
+        w-full aspect-[16/9] flex flex-col items-center justify-center 
         rounded-3xl border-2 border-dashed transition-all duration-300
         ${isDragging 
           ? 'border-indigo-500 bg-indigo-50/50 scale-[0.98]' 

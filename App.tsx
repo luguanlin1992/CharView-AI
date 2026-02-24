@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 
 const aspectRatios: { label: string; value: AspectRatioType; icon: any }[] = [
+  { label: '智能', value: 'AUTO', icon: Wand2 },
+  { label: '21:9', value: '21:9', icon: Monitor },
   { label: '16:9', value: '16:9', icon: Monitor },
   { label: '4:3', value: '4:3', icon: Layout },
   { label: '1:1', value: '1:1', icon: Square },
@@ -35,7 +37,7 @@ const App: React.FC = () => {
   // Generation Parameters
   const [viewMode, setViewMode] = useState<ViewMode>('3-VIEW');
   const [poseType, setPoseType] = useState<PoseType>('T-POSE'); 
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('16:9');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('AUTO');
   const [modelId, setModelId] = useState<ModelType>('gemini-2.5-flash-image');
   const [imageSize, setImageSize] = useState<ImageSizeType>('1K');
   const [removeProps, setRemoveProps] = useState<boolean>(false);
@@ -83,12 +85,12 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
       <Header />
       
-      <main className="flex-grow max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
+      <main className="flex-grow max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6 items-start">
           
-          <aside className="space-y-6 lg:sticky lg:top-24">
+          <aside className="space-y-4 lg:sticky lg:top-20">
             {/* Input Asset Section */}
-            <div className="bg-white p-6 rounded-4xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-4xl border border-slate-200/60 shadow-sm">
               <div className="flex items-center justify-between mb-4 px-1">
                 <h2 className="text-sm font-bold flex items-center gap-2 text-slate-800">
                   <Scan className="w-4 h-4 text-indigo-500" /> 原画素材
@@ -102,7 +104,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Config Section */}
-            <div className="bg-white p-6 rounded-4xl border border-slate-200/60 shadow-sm space-y-6">
+            <div className="bg-white p-5 rounded-4xl border border-slate-200/60 shadow-sm space-y-4">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-sm font-bold flex items-center gap-2 text-slate-800">
                   <Layers className="w-4 h-4 text-indigo-500" /> 生成参数
@@ -116,9 +118,9 @@ const App: React.FC = () => {
                 </button>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* View Mode Selection */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <Layout className="w-3 h-3" /> 视图布局
                   </label>
@@ -139,7 +141,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Pose Type Selection */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <User className="w-3 h-3" /> 姿势类型
                   </label>
@@ -157,7 +159,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Props Removal Toggle */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <Sword className="w-3 h-3" /> 道具控制
                   </label>
@@ -180,35 +182,35 @@ const App: React.FC = () => {
                 </div>
 
                 {/* AI Model Selection */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">渲染模型</label>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button 
                       onClick={() => setModelId('gemini-2.5-flash-image')} 
-                      className={`flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all ${modelId === 'gemini-2.5-flash-image' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
+                      className={`flex flex-col items-start justify-center px-3 py-3 rounded-2xl border-2 transition-all ${modelId === 'gemini-2.5-flash-image' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
                     >
-                      <div className="text-left">
-                        <span className={`block text-[11px] font-bold ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-700' : 'text-slate-700'}`}>Gemini 2.5 Flash</span>
-                        <span className="text-[9px] text-slate-400 font-medium italic">标准解析度</span>
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className={`text-[11px] font-bold ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-700' : 'text-slate-700'}`}>2.5 Flash</span>
+                        <Zap className={`w-3.5 h-3.5 ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
                       </div>
-                      <Zap className={`w-4 h-4 ${modelId === 'gemini-2.5-flash-image' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
+                      <span className="text-[9px] text-slate-400 font-medium italic">标准解析度</span>
                     </button>
                     <button 
                       onClick={() => setModelId('gemini-3-pro-image-preview')} 
-                      className={`flex items-center justify-between px-4 py-4 rounded-2xl border-2 transition-all ${modelId === 'gemini-3-pro-image-preview' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
+                      className={`flex flex-col items-start justify-center px-3 py-3 rounded-2xl border-2 transition-all ${modelId === 'gemini-3-pro-image-preview' ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 hover:border-slate-200 bg-slate-50/50'}`}
                     >
-                      <div className="text-left">
-                        <span className={`block text-[11px] font-bold ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-700' : 'text-slate-700'}`}>Gemini 3 Pro</span>
-                        <span className="text-[9px] text-slate-400 font-medium italic">超高解析度 (1K-4K)</span>
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className={`text-[11px] font-bold ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-700' : 'text-slate-700'}`}>3 Pro</span>
+                        <Sparkles className={`w-3.5 h-3.5 ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
                       </div>
-                      <Sparkles className={`w-4 h-4 ${modelId === 'gemini-3-pro-image-preview' ? 'text-indigo-500 fill-indigo-500' : 'text-slate-300'}`} />
+                      <span className="text-[9px] text-slate-400 font-medium italic">超高解析度</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Image Size Selection (Only for Pro) */}
                 {modelId === 'gemini-3-pro-image-preview' && (
-                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                     <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">输出品质</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['1K', '2K', '4K'] as ImageSizeType[]).map((size) => (
@@ -225,9 +227,9 @@ const App: React.FC = () => {
                 )}
 
                 {/* Aspect Ratio Selector */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">出图比例</label>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {aspectRatios.map((ratio) => {
                       const Icon = ratio.icon;
                       return (
@@ -244,7 +246,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <MessageSquare className="w-3 h-3" /> 细节修正
                   </label>
@@ -252,7 +254,7 @@ const App: React.FC = () => {
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     placeholder="可选细节补充..."
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs min-h-[80px] outline-none focus:ring-2 focus:ring-indigo-100 transition-all resize-none"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3 text-xs min-h-[60px] outline-none focus:ring-2 focus:ring-indigo-100 transition-all resize-none"
                   />
                 </div>
               </div>
@@ -277,8 +279,8 @@ const App: React.FC = () => {
           </aside>
 
           {/* Canvas Section */}
-          <section className="space-y-6">
-            <div className="bg-white rounded-[3rem] border border-slate-200/60 shadow-sm p-3 flex flex-col h-full overflow-hidden min-h-[700px]">
+          <section className="h-[calc(100vh-100px)]">
+            <div className="bg-white rounded-[3rem] border border-slate-200/60 shadow-sm p-3 flex flex-col h-full overflow-hidden">
               <div className="flex items-center justify-between p-4 px-8 border-b border-slate-50">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />

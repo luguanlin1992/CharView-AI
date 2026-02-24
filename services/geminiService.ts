@@ -9,6 +9,35 @@ const formatEndpoint = (baseUrl: string, modelId: string): string => {
   return `${cleanBase}/v1beta/models/${modelId}:generateContent`;
 };
 
+const getClosestAspectRatio = (base64Image: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      const ratios = [
+        { label: '21:9', value: 21 / 9 },
+        { label: '16:9', value: 16 / 9 },
+        { label: '4:3', value: 4 / 3 },
+        { label: '1:1', value: 1 },
+        { label: '3:4', value: 3 / 4 },
+        { label: '9:16', value: 9 / 16 }
+      ];
+      let closest = ratios[0];
+      let minDiff = Math.abs(ratio - ratios[0].value);
+      for (let i = 1; i < ratios.length; i++) {
+        const diff = Math.abs(ratio - ratios[i].value);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = ratios[i];
+        }
+      }
+      resolve(closest.label);
+    };
+    img.onerror = () => resolve('16:9'); // fallback
+    img.src = base64Image;
+  });
+};
+
 // 导出生成图像的核心函数
 export const generateCharacterSheet = async (
   base64Image: string, 
@@ -33,6 +62,11 @@ export const generateCharacterSheet = async (
 
   if (!apiKey) {
     throw new Error("API Key 缺失，请在设置中进行配置。");
+  }
+  
+  let finalAspectRatio = config.aspectRatio;
+  if (finalAspectRatio === 'AUTO') {
+    finalAspectRatio = await getClosestAspectRatio(base64Image) as AspectRatioType;
   }
   
   const basePrompt = `
@@ -83,7 +117,7 @@ ${config.customInstruction ? `ADDITIONAL GUIDANCE: ${config.customInstruction}` 
       // 对于 Pro 模型，必须显式设置 responseModalities
       ...(isProModel ? { responseModalities: ["image"] } : {}),
       imageConfig: {
-        aspectRatio: config.aspectRatio,
+        aspectRatio: finalAspectRatio,
         ...(isProModel ? { imageSize: config.imageSize } : {})
       }
     }
